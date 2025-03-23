@@ -9,7 +9,7 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 ## Installation
 1. **Download or install** the module via Foundry’s module manager.
 2. **Enable** it in `Game Settings > Manage Modules`.
-3. **Enter** your OpenAI API keys in **`Game Settings > Module Settings > ChatGPT Item Generator`**: (Not Working Currently)
+3. **Enter** your OpenAI API keys in **`Game Settings > Module Settings > ChatGPT Item Generator`**: (Not Working Currently) (They show up under "Unmapped")
    - **OpenAI API Key** (for ChatGPT text generation).
    - **DALL·E API Key** (for image generation).
 4. Open the **Items** tab, then click **Generate AI D&D 5e Item**.(Not Wokring Currently) Must use this Macro ATM:
