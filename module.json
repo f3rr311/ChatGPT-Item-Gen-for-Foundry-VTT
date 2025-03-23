@@ -1,0 +1,50 @@
+{
+    "id": "chatgpt-item-generator",
+    "title": "ChatGPT Item Generator",
+    "description": "Generates AI-powered D&D 5e items with descriptions, effects, and images.",
+    "version": "1.0.1",
+    "authors": [
+        {
+            "name": "Your Name",
+            "url": "https://github.com/f3rr311",
+            "discord": "Byte_Smarter",
+            "flags": {}
+        }
+    ],
+    "socket": false,
+    "scripts": [
+        "script.js"
+    ],
+    "esmodules": [
+        "script.js"
+    ],
+    "styles": [
+        "styles/chatgpt-item-generator.css"
+    ],
+    "packs": [],
+    "languages": [
+        {
+            "lang": "en",
+            "name": "English",
+            "path": "languages/en.json",
+            "flags": {}
+        }
+    ],
+    "compatibility": {
+        "minimum": 11,
+        "verified": 11,
+        "maximum": 12
+    },
+    "license": "MIT",
+    "url": "https://github.com/yourgithub/chatgpt-item-generator",
+    "manifest": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/latest/download/module.json",
+    "download": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/download/1.0.1/module.zip",
+    "readme": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/blob/main/README.md",
+    "changelog": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/blob/main/CHANGELOG.md",
+    "bugs": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues",
+    "relationships": {
+        "systems": ["dnd5e"],
+        "requires": [],
+        "conflicts": []
+    }
+}

@@ -1,0 +1,15 @@
+
+/* ChatGPT Item Generator Styles */
+.chatgpt-generate-item {
+    background-color: #282c34;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.chatgpt-generate-item:hover {
+    background-color: #3c4049;
+}
