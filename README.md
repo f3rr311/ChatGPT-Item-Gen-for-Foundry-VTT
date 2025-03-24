@@ -8,6 +8,9 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 - **Optionally create a roll table**, with tailored entries that include additional context (such as city, biome, or theme details) and automatically link generated items.
 
 ## Installation
+
+### You **must** make a new user directory folder named "chatgpt-item-generator"
+
 1. **Download or install** the module via Foundry’s module manager.
 2. **Enable** it in `Game Settings > Manage Modules`.
 3. **Enter** your API keys in **`Game Settings > Module Settings > ChatGPT Item Generator`**:
@@ -35,7 +38,7 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 
 ### Local AI Image Storage
 - AI-generated images are saved locally using Base64 encoding.
-- Images are stored in a dedicated folder (`modules/chatgpt-item-generator/images`), ensuring they persist across module updates and can be reliably loaded in the item sheet.
+- Images are stored in a dedicated folder (`data/chatgpt-item-generator/`), ensuring they persist across module updates and can be reliably loaded in the item sheet.
 
 ### No Hardcoded API Keys
 - API keys for OpenAI and DALL·E are entered via Foundry’s module settings, keeping sensitive data secure.
@@ -65,7 +68,7 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 
 ## Notes
 - **Local Image Storage:**  
-  Generated images are saved in the module folder under `modules/chatgpt-item-generator/images`. Ensure that you have appropriate permissions for file writing.
+  Generated images are saved in the module folder under `data/chatgpt-item-generator/`. Ensure that you have appropriate permissions for file writing.
 - **Roll Table Generation:**  
   The module requires GPT to generate exactly 20 entries for generic roll tables. If the table is empty, try re-running the prompt with more specific environmental details.
 - **Damage Calculations:**  
