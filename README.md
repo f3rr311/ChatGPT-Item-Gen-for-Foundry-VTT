@@ -10,6 +10,8 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 ## Installation
 
 ### You **must** make a new user directory folder named "chatgpt-item-generator"
+![image](https://github.com/user-attachments/assets/c0e0544d-f99c-433b-acb0-c41ed9c81c27)
+
 
 1. **Download or install** the module via Foundry’s module manager.
 2. **Enable** it in `Game Settings > Manage Modules`.
