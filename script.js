@@ -4,8 +4,8 @@ class ChatGPTItemGenerator {
     this.dalleApiKey = game.settings.get("chatgpt-item-gen", "dalleApiKey") || "";
     // List of keywords to check for forced inclusion in item names
     this.keywords = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
-    // Save images under the module folder
-    this.imageFolder = "modules/chatgpt-item-generator/images";
+    // Set image folder to data/chatgpt-item-generator
+    this.imageFolder = "chatgpt-item-generator";
   }
 
   static registerSettings() {
@@ -47,11 +47,7 @@ class ChatGPTItemGenerator {
       body: JSON.stringify({
         model: "gpt-4",
         messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful assistant. The user provided invalid JSON. Fix it so it's strictly valid JSON with double-quoted property names. No extra commentary."
-          },
+          { role: "system", content: "You are a helpful assistant. The user provided invalid JSON. Fix it so it's strictly valid JSON with double-quoted property names. No extra commentary." },
           { role: "user", content: badJSON }
         ],
         max_tokens: 900
@@ -84,6 +80,7 @@ class ChatGPTItemGenerator {
     if (data.data && data.data[0]?.b64_json) {
       const dataUrl = `data:image/png;base64,${data.data[0].b64_json}`;
       const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
+      // Save to the folder data/chatgpt-item-generator
       const targetFolder = this.imageFolder;
       await this.ensureFolderExists(targetFolder);
       const localPath = await this.saveImageLocally(dataUrl, fileName, targetFolder);
