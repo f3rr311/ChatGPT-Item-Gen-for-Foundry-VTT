@@ -2,7 +2,7 @@
 
 ## v1.0.2 - Enhanced Roll Table & Image Storage Improvements
 - ✅ **Local AI Image Storage:**  
-  Switched from ephemeral image handling to saving AI-generated images locally using Base64 encoding in the module folder (`modules/chatgpt-item-generator/images`). This ensures images persist across module updates.
+  Switched from ephemeral image handling to saving AI-generated images locally using Base64 encoding in the module folder (`data/chatgpt-item-generator`). This ensures images persist across module updates.
 - ✅ **Improved Generic Roll Table Prompt:**  
   The system prompt for generic roll tables has been refined to require exactly 20 tailored entries. GPT is now explicitly instructed to include context-specific details (e.g., city, biome, or theme) to avoid overly generic outputs.
 - ✅ **Roll Table Linking Enhancements:**  
