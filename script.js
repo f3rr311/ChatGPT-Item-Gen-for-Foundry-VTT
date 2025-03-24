@@ -1,15 +1,15 @@
 class ChatGPTItemGenerator {
   constructor() {
-    this.apiKey = game.settings.get("chatgpt-item-gen", "openaiApiKey") || "";
-    this.dalleApiKey = game.settings.get("chatgpt-item-gen", "dalleApiKey") || "";
+    this.apiKey = game.settings.get("chatgpt-item-generator", "openaiApiKey") || "";
+    this.dalleApiKey = game.settings.get("chatgpt-item-generator", "dalleApiKey") || "";
     // List of keywords to check for forced inclusion in item names
     this.keywords = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
-    // Set image folder to data/chatgpt-item-generator
+    // Save images under data/chatgpt-item-generator
     this.imageFolder = "chatgpt-item-generator";
   }
 
   static registerSettings() {
-    game.settings.register("chatgpt-item-gen", "openaiApiKey", {
+    game.settings.register("chatgpt-item-generator", "openaiApiKey", {
       name: "OpenAI API Key",
       hint: "Enter your OpenAI API key to enable AI-generated item descriptions.",
       scope: "world",
@@ -17,7 +17,7 @@ class ChatGPTItemGenerator {
       type: String,
       default: ""
     });
-    game.settings.register("chatgpt-item-gen", "dalleApiKey", {
+    game.settings.register("chatgpt-item-generator", "dalleApiKey", {
       name: "DALL·E API Key",
       hint: "Enter your OpenAI API key for DALL·E to enable AI-generated images.",
       scope: "world",
@@ -80,24 +80,36 @@ class ChatGPTItemGenerator {
     if (data.data && data.data[0]?.b64_json) {
       const dataUrl = `data:image/png;base64,${data.data[0].b64_json}`;
       const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
-      // Save to the folder data/chatgpt-item-generator
       const targetFolder = this.imageFolder;
-      await this.ensureFolderExists(targetFolder);
+      await this.createFolder(targetFolder);
+      await this.checkFolder(targetFolder);
       const localPath = await this.saveImageLocally(dataUrl, fileName, targetFolder);
       return localPath;
     }
     return "";
   }
 
-  async ensureFolderExists(folderPath) {
+  // Create the folder (ignoring errors if it already exists)
+  async createFolder(folderPath) {
+    try {
+      await FilePicker.createDirectory("data", folderPath);
+      console.log("Attempted folder creation:", folderPath);
+    } catch (err) {
+      console.warn("Folder creation error (likely already exists):", err);
+    }
+  }
+
+  // Check folder existence after creation attempt
+  async checkFolder(folderPath) {
     try {
       const folderData = await FilePicker.browse("data", folderPath);
       if (!folderData || !folderData.dirs.includes(folderPath)) {
-        await FilePicker.createDirectory("data", folderPath);
-        console.log("Created missing folder:", folderPath);
+        console.error("Folder does not exist after creation attempt:", folderPath);
+      } else {
+        console.log("Folder confirmed:", folderPath);
       }
     } catch (err) {
-      console.error("Error ensuring folder exists:", err);
+      console.error("Error checking folder existence:", err);
     }
   }
 
