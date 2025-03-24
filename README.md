@@ -1,3 +1,5 @@
+Looking for others that would like to work on this with me, as I am not a programmer really.
+
 # ChatGPT Item Generator for Foundry VTT
 
 ## Overview
