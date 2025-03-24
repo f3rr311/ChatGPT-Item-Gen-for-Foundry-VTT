@@ -49,6 +49,14 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 1. **Enable** the module in your world under `Game Settings > Manage Modules`.
 2. **Enter** your OpenAI API keys in `Game Settings > Configure Settings > ChatGPT Item Generator`.
 3. **Open the Items tab** (in Foundry v12, the button is placed via the `renderSidebarTab` hook).
+This is Currently being worked on, the WOrkaround is to make a macro:
+```
+if (game.chatGPTItemGenerator) {
+  game.chatGPTItemGenerator.createFoundryAIObject();
+} else {
+  ui.notifications.error("ChatGPT Item Generator module is not loaded.");
+}
+```
 4. **Click** **Generate AI (Item or RollTable)** to open the dialog, then choose whether to generate an item or a roll table.
 5. For roll tables:
    - Select "Items" mode to automatically create and link generated item documents.
