@@ -17,6 +17,9 @@
   The "Generate AI (Item or RollTable)" button is now added to the footer of the Items directory via the `renderItemDirectory` hook.
 - ✅ **Local Image Storage Adjustments:**  
   Updated folder creation and checks so that images are saved in the designated folder with proper error handling.
+- ✅ **Weapon Type and Base Weapon Mapping:**  
+  Tweaked the damage mapping to reformat ChatGPT's raw damage data into Foundry’s expected structure, and added explicit weapon type mapping and base weapon classification to better support weapon items.
+
 
 ## v1.0.2 - Previous Enhancements
 - ✅ **Advanced Item Type Mapping:**  
