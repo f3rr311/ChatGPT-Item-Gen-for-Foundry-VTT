@@ -327,7 +327,12 @@ class ChatGPTItemGenerator {
     let foundryItemType = "equipment";
     if (parsed.itemType) {
       let typeStr = parsed.itemType.toLowerCase();
-      const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "rapier", "scimitar", "quarterstaff"];
+      // Expanded weaponKeywords list for both melee and ranged.
+      const weaponKeywords = [
+        "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
+        "spear", "pike", "rapier", "scimitar", "quarterstaff", "staff",
+        "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
+      ];
       if (weaponKeywords.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
         foundryItemType = "weapon";
       } else {
@@ -346,7 +351,12 @@ class ChatGPTItemGenerator {
         foundryItemType = map[typeStr] || "equipment";
       }
     } else {
-      const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "rapier", "scimitar", "quarterstaff"];
+      // Fallback: examine the generated name.
+      const weaponKeywords = [
+        "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
+        "spear", "pike", "rapier", "scimitar", "quarterstaff", "staff",
+        "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
+      ];
       if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
         foundryItemType = "weapon";
       }
@@ -469,7 +479,12 @@ class ChatGPTItemGenerator {
     let foundryItemType = "equipment";
     if (parsed.itemType) {
       let typeStr = parsed.itemType.toLowerCase();
-      const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "rapier", "scimitar", "quarterstaff"];
+      // Expanded weapon keywords array.
+      const weaponKeywords = [
+        "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
+        "spear", "pike", "rapier", "scimitar", "quarterstaff", "staff",
+        "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
+      ];
       if (weaponKeywords.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
         foundryItemType = "weapon";
       } else {
@@ -488,7 +503,11 @@ class ChatGPTItemGenerator {
         foundryItemType = map[typeStr] || "equipment";
       }
     } else {
-      const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "rapier", "scimitar", "quarterstaff"];
+      const weaponKeywords = [
+        "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
+        "spear", "pike", "rapier", "scimitar", "quarterstaff", "staff",
+        "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
+      ];
       if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
         foundryItemType = "weapon";
       }
