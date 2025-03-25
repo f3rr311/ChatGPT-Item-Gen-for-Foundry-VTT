@@ -10,7 +10,7 @@
 - ✅ **Image Generation Prompt Update:**  
   Updated the DALL·E prompt to explicitly instruct the model to generate images without any text.
 - ✅ **Expanded Weapon Keywords:**  
-  The weapon keywords array now includes terms like "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", and "maul". (The keyword "wand" has been removed.)
+  The weapon keywords array now includes terms like "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", and "maul".
 - ✅ **Unified Dialog Interface with Dropdowns:**  
   Added a custom dialog with dropdown options to select between generating a single item or a roll table.
 - ✅ **Footer Button Integration:**  
