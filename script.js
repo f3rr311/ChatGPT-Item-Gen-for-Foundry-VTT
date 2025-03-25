@@ -156,6 +156,48 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
+   * Helper Methods for Weapon Damage & Properties
+   * ------------------------------- */
+  transformWeaponDamage(damage) {
+    if (!damage) return { parts: [] };
+    // If already formatted with a parts array, return as-is.
+    if (damage.parts && Array.isArray(damage.parts)) {
+      return damage;
+    }
+    // If given as separate dice, modifier, and type
+    if (damage.dice) {
+      let formula = damage.dice;
+      if (damage.modifier) {
+        let mod = damage.modifier;
+        if (!mod.startsWith('+') && !mod.startsWith('-')) {
+          mod = '+' + mod;
+        }
+        formula += mod;
+      }
+      let damageType = damage.type || "";
+      return { parts: [[formula, damageType]] };
+    }
+    return { parts: [] };
+  }
+
+  transformWeaponProperties(wp) {
+    let properties = [];
+    if (!wp) return properties;
+    if (Array.isArray(wp)) {
+      properties = wp.map(prop => prop.toString().toLowerCase());
+    } else if (typeof wp === 'object') {
+      for (let key in wp) {
+        if (wp.hasOwnProperty(key)) {
+          properties.push(`${key}: ${wp[key]}`.toLowerCase());
+        }
+      }
+    } else {
+      properties.push(wp.toString().toLowerCase());
+    }
+    return properties;
+  }
+
+  /* --------------------------------
    * 3) Item Generation Functions
    * ------------------------------- */
   async generateItemJSON(prompt, explicitType = "") {
@@ -344,6 +386,11 @@ class ChatGPTItemGenerator {
     let rawJson = await this.generateItemJSON(combined, explicitType);
     let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawJson, combined);
     let parsed = await this.parseItemJSON(fixedJSON);
+    // If the item is a weapon and damage info is provided, transform it to the proper format.
+    const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
+      parsed.damage = this.transformWeaponDamage(parsed.damage);
+    }
     let finalDesc = parsed.description || "No description provided.";
     // Use explicit type mapping.
     let explicitMapping = {
@@ -359,11 +406,8 @@ class ChatGPTItemGenerator {
     if (!explicitType) {
       if (parsed.itemType) {
         let typeStr = parsed.itemType.toLowerCase();
-        const weaponKeywords = [
-          "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
-          "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff"
-        ];
-        if (weaponKeywords.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
+        const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+        if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
           foundryItemType = "weapon";
         } else {
           const map = {
@@ -381,10 +425,6 @@ class ChatGPTItemGenerator {
           foundryItemType = map[typeStr] || "equipment";
         }
       } else {
-        const weaponKeywords = [
-          "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
-          "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
-        ];
         if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
           foundryItemType = "weapon";
         }
@@ -392,9 +432,7 @@ class ChatGPTItemGenerator {
           foundryItemType = "consumable";
         }
         if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
-          const descWeaponKeywords = [
-            "sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
-          ];
+          const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
           if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
             foundryItemType = "weapon";
           }
@@ -410,26 +448,29 @@ class ChatGPTItemGenerator {
         rarity: parsed.rarity || "common",
         weight: parsed.weight || 1,
         price: { value: parsed.price || 100, denomination: "gp" },
-        attunement: parsed.requiresAttunement || false,
+        // Updated attunement mapping
+        attunement: parsed.requiresAttunement ? "required" : false,
         armor: { value: 10 },
         properties: [],
         activation: parsed.activation || { type: "", cost: 0 },
         uses: parsed.uses || {},
-        // Updated damage property for weapons
         damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null)
       }
     };
+    // Process weaponProperties regardless of whether it's an array or an object.
+    if (foundryItemType === "weapon" && parsed.weaponProperties) {
+      let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
+      for (let wp of wpProps) {
+        newItemData.system.properties.push(wp);
+      }
+    }
+    // Updated magical flag mapping to push "mgc"
     if (parsed.magical === true) {
-      newItemData.system.properties.push("magical");
+      newItemData.system.properties.push("mgc");
     } else {
       let magList = ["rare", "very rare", "legendary", "artifact"];
       if (magList.includes((parsed.rarity || "").toLowerCase())) {
-        newItemData.system.properties.push("magical");
-      }
-    }
-    if (foundryItemType === "weapon" && parsed.weaponProperties && Array.isArray(parsed.weaponProperties)) {
-      for (let wp of parsed.weaponProperties) {
-        newItemData.system.properties.push(wp.toLowerCase());
+        newItemData.system.properties.push("mgc");
       }
     }
     if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
@@ -510,14 +551,19 @@ class ChatGPTItemGenerator {
     this.updateProgressBar(10);
     let combined = `${itemType} - ${itemDesc}` + (explicitType ? " - " + explicitType : "");
     let generatedName = await this.generateItemName(combined);
-    this.updateProgressBar(20);
+    // Add "katana" to the recognized weapon keywords.
+    const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
     let imagePath = await this.generateItemImageSilent(combined);
-    this.updateProgressBar(40);
+    this.updateProgressBar(20);
     let rawItemJSON = await this.generateItemJSON(combined, explicitType);
-    this.updateProgressBar(60);
+    this.updateProgressBar(40);
     let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
     let parsed = await this.parseItemJSON(fixedJSON);
-    this.updateProgressBar(80);
+    // Transform weapon damage if applicable.
+    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
+      parsed.damage = this.transformWeaponDamage(parsed.damage);
+    }
+    this.updateProgressBar(60);
     let finalDesc = parsed.description || "No description provided.";
     let foundryItemType = "equipment";
     if (explicitType) {
@@ -534,11 +580,8 @@ class ChatGPTItemGenerator {
     } else {
       if (parsed.itemType) {
         let typeStr = parsed.itemType.toLowerCase();
-        const weaponKeywords = [
-          "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
-          "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff"
-        ];
-        if (weaponKeywords.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
+        const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+        if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
           foundryItemType = "weapon";
         } else {
           const map = {
@@ -556,10 +599,6 @@ class ChatGPTItemGenerator {
           foundryItemType = map[typeStr] || "equipment";
         }
       } else {
-        const weaponKeywords = [
-          "sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club",
-          "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
-        ];
         if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
           foundryItemType = "weapon";
         }
@@ -567,9 +606,7 @@ class ChatGPTItemGenerator {
           foundryItemType = "consumable";
         }
         if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
-          const descWeaponKeywords = [
-            "sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul"
-          ];
+          const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
           if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
             foundryItemType = "weapon";
           }
@@ -585,26 +622,29 @@ class ChatGPTItemGenerator {
         rarity: parsed.rarity || "common",
         weight: parsed.weight || 1,
         price: { value: parsed.price || 100, denomination: "gp" },
-        attunement: parsed.requiresAttunement || false,
+        // Updated attunement mapping
+        attunement: parsed.requiresAttunement ? "required" : false,
         armor: { value: 10 },
         properties: [],
         activation: parsed.activation || { type: "", cost: 0 },
         uses: parsed.uses || {},
-        // Updated damage property for weapons
         damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null)
       }
     };
+    // Process weaponProperties regardless of whether it's an array or an object.
+    if (foundryItemType === "weapon" && parsed.weaponProperties) {
+      let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
+      for (let wp of wpProps) {
+        newItemData.system.properties.push(wp);
+      }
+    }
+    // Updated magical flag mapping to push "mgc"
     if (parsed.magical === true) {
-      newItemData.system.properties.push("magical");
+      newItemData.system.properties.push("mgc");
     } else {
       let magList = ["rare", "very rare", "legendary", "artifact"];
       if (magList.includes((parsed.rarity || "").toLowerCase())) {
-        newItemData.system.properties.push("magical");
-      }
-    }
-    if (foundryItemType === "weapon" && parsed.weaponProperties && Array.isArray(parsed.weaponProperties)) {
-      for (let wp of parsed.weaponProperties) {
-        newItemData.system.properties.push(wp.toLowerCase());
+        newItemData.system.properties.push("mgc");
       }
     }
     if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
