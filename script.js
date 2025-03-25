@@ -375,6 +375,41 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
+   * New Helper: Generate Multiple Magical Property Descriptions
+   * ------------------------------- */
+  async generateMagicalProperties(itemData, count) {
+    const prompt = `Generate ${count} creative, unique, and flavorful magical property descriptions for the following DnD 5e item. Each description should be a concise sentence describing a special ability or effect that fits the item details. Provide each property on its own line.
+    
+Item Details:
+Name: ${itemData.name}
+Type: ${itemData.type}
+Rarity: ${itemData.system.rarity}
+Weight: ${itemData.system.weight}
+Price: ${itemData.system.price.value} ${itemData.system.price.denomination}
+Description: ${itemData.system.description.value}
+
+Output only the descriptions, one per line, with no numbering or extra commentary.`;
+    
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "You are an expert DnD magical property generator." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 300
+      })
+    });
+    let data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  }
+
+  /* --------------------------------
    * 5) Create Unique Item Document (for Roll Table Entries)
    * Accepts an optional forcedName to override the generated name.
    * Also accepts an explicitType parameter from the drop-down.
@@ -392,18 +427,19 @@ class ChatGPTItemGenerator {
       parsed.damage = this.transformWeaponDamage(parsed.damage);
     }
     let finalDesc = parsed.description || "No description provided.";
-    // Use explicit type mapping.
-    let explicitMapping = {
-      "Weapon": "weapon",
-      "Armor": "equipment",
-      "Equipment": "equipment",
-      "Consumable": "consumable",
-      "Tool": "tool",
-      "Loot": "loot",
-      "Spell": "spell"
-    };
-    let foundryItemType = explicitType ? explicitMapping[explicitType] || "equipment" : "equipment";
-    if (!explicitType) {
+    let foundryItemType = "equipment";
+    if (explicitType) {
+      const explicitMapping = {
+        "Weapon": "weapon",
+        "Armor": "equipment",
+        "Equipment": "equipment",
+        "Consumable": "consumable",
+        "Tool": "tool",
+        "Loot": "loot",
+        "Spell": "spell"
+      };
+      foundryItemType = explicitMapping[explicitType] || "equipment";
+    } else {
       if (parsed.itemType) {
         let typeStr = parsed.itemType.toLowerCase();
         const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
@@ -464,13 +500,15 @@ class ChatGPTItemGenerator {
         newItemData.system.properties.push(wp);
       }
     }
-    // Updated magical flag mapping to push "mgc"
-    if (parsed.magical === true) {
-      newItemData.system.properties.push("mgc");
-    } else {
-      let magList = ["rare", "very rare", "legendary", "artifact"];
-      if (magList.includes((parsed.rarity || "").toLowerCase())) {
-        newItemData.system.properties.push("mgc");
+    // Updated magical property logic: generate multiple magical property descriptions.
+    const magList = ["rare", "very rare", "legendary", "artifact"];
+    const rarityLower = (parsed.rarity || "").toLowerCase();
+    if (parsed.magical === true || (magList.includes(rarityLower) && Math.random() < 0.5)) {
+      // Determine a random count of magical properties (1 to 3)
+      const count = Math.floor(Math.random() * 3) + 1;
+      const magProps = await this.generateMagicalProperties(newItemData, count);
+      if (magProps) {
+        newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
       }
     }
     if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
@@ -482,8 +520,10 @@ class ChatGPTItemGenerator {
         dex: (armorType === "medium") ? 2 : null
       };
     }
-    let created = await Item.create(newItemData);
-    return created;
+    await Item.create(newItemData);
+    this.updateProgressBar(100);
+    this.hideProgressBar();
+    ui.notifications.info(`New D&D 5e item created: ${generatedName} (Image: ${imagePath})`);
   }
 
   /* --------------------------------
@@ -638,13 +678,15 @@ class ChatGPTItemGenerator {
         newItemData.system.properties.push(wp);
       }
     }
-    // Updated magical flag mapping to push "mgc"
-    if (parsed.magical === true) {
-      newItemData.system.properties.push("mgc");
-    } else {
-      let magList = ["rare", "very rare", "legendary", "artifact"];
-      if (magList.includes((parsed.rarity || "").toLowerCase())) {
-        newItemData.system.properties.push("mgc");
+    // Updated magical property logic: generate multiple magical property descriptions.
+    const magList = ["rare", "very rare", "legendary", "artifact"];
+    const rarityLower = (parsed.rarity || "").toLowerCase();
+    if (parsed.magical === true || (magList.includes(rarityLower) && Math.random() < 0.5)) {
+      // Determine a random count of magical properties (1 to 3)
+      const count = Math.floor(Math.random() * 3) + 1;
+      const magProps = await this.generateMagicalProperties(newItemData, count);
+      if (magProps) {
+        newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
       }
     }
     if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
@@ -663,7 +705,7 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
-   * 8) Roll Table Flow (Dialog Version)
+   * 6) Roll Table Flow (Dialog Version)
    * ------------------------------- */
   async createFoundryRollTableFromDialog(tableDesc, explicitType) {
     this.showProgressBar();
@@ -732,7 +774,7 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
-   * 9) Unified Dialog Entry Point
+   * 7) Unified Dialog Entry Point
    * ------------------------------- */
   async openGenerateDialog() {
     new Dialog({
