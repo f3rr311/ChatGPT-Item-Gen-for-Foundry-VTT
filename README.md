@@ -11,7 +11,8 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
 
 ## Features
 
-### AI Integration with ChatGPT and DALL·E
+### AI Integration with ChatGPT and DALL·E 
+- Make sure to make your API keys here: https://platform.openai.com/api-keys
 - Uses ChatGPT (via GPT-4) to generate structured JSON for D&D 5e items and roll tables.
 - Utilizes DALL·E for on-demand image generation for items, saving images locally.
 
