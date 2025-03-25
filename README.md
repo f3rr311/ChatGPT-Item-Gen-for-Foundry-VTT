@@ -1,5 +1,7 @@
 # ChatGPT Item Generator for Foundry VTT
 
+![image](https://github.com/user-attachments/assets/b5ce91c1-709b-4bcd-8373-5c8869561c6e)
+
 ## Overview
 This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e items** within Foundry VTT. You can prompt for an item type (weapon, armor, potion, etc.) and a brief description; the module will then:
 - **Generate a short, thematic item name** via ChatGPT.
