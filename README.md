@@ -41,7 +41,6 @@ This module leverages **ChatGPT** and **DALL·E 3** to dynamically create **D&D 
   - Features a custom dialog window with dropdown menus for selecting between item and roll table generation.
   - Provides an additional dropdown for explicit item type selection (e.g., Weapon, Armor, Consumable), which appears contextually.
   - Offers a separate dropdown for choosing roll table mode (Items vs. Generic) when generating a roll table.
-- **Auto-Resizing Dialog:** Automatically adjusts the dialog window so all controls and the Generate button are visible without scrolling.
 - **Progress Bar:** Includes a visual progress bar overlay during AI generation to indicate processing status.
 - **Footer Button Integration:** Adds a "Generate AI (Item or RollTable)" button to the Items directory footer, visible only to Game Masters.
 
@@ -77,12 +76,6 @@ This module leverages **ChatGPT** and **DALL·E 3** to dynamically create **D&D 
 - **Roll Table Prompt:**  
   "Create a generic roll table for a haunted village with eerie, atmospheric entries."
 
-## Customization Options
-- **Advanced Configuration:**  
-  Adjust JSON sanitization parameters, tweak the damage mapping logic, or change image storage settings via the module’s configuration file.
-- **User Preferences:**  
-  Customize default item types and roll table settings to better fit your campaign needs.
-
 ## Future Roadmap
 - **Planned Features:**
   - Enhanced UI customization for easier item editing.
@@ -93,9 +86,7 @@ This module leverages **ChatGPT** and **DALL·E 3** to dynamically create **D&D 
 
 ## Contribution Guidelines
 - **How to Contribute:**  
-  Interested in contributing? Please refer to the [Contribution Guidelines](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/blob/main/CONTRIBUTING.md) on our GitHub repository for more details.
-- **Community Engagement:**  
-  Engage with other developers and users on the GitHub Issues page to discuss potential improvements and features.
+  Interested in contributing?
 
 ## Additional Notes
 - **Local Image Storage:**  
@@ -105,7 +96,6 @@ This module leverages **ChatGPT** and **DALL·E 3** to dynamically create **D&D 
 - **Damage Calculations:**  
   For weapons, any provided damage string (e.g., "1d8") is automatically converted into a structured damage object that aligns with D&D 5e system requirements.
 
-I welcome contributions from anyone interested in further developing this project.
 
 ## Support
 For issues or feature requests, please visit [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues).
