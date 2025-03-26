@@ -1,4 +1,12 @@
 # Changelog
+## v1.0.4 - Latest Improvements & Fixes
+- ✅ **Nested Type Handling:--
+  The code now checks if the parsed JSON includes a nested type object. If present, that object is used for the item's type information; otherwise, for weapons it defaults to { value: "simpleM", baseItem: "" }.
+- ✅ **Magic Fix:**
+  The logic now checks for both "magical" and "magic" properties (using a robust string comparison) so that items are properly marked as magical if the JSON indicates so.
+- ✅ **DALL‑E 2 Fallback:
+  The generateItemImageSilent function now falls back to DALL‑E 2 if DALL‑E 3 is not subscribed to(Not very good at images).
+
 
 ## v1.0.3 - Latest Improvements & Fixes
 - ✅ **Forced Name Override for Roll Tables:**  
