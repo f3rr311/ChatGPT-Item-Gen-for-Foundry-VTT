@@ -88,11 +88,12 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
-   * 2) Image Generation with Base64 & Local Saving
+   * 2) Image Generation with Base64 & Local Saving (with DALL‑E 2 fallback)
    * ------------------------------- */
   async generateItemImageSilent(prompt) {
     if (!this.dalleApiKey) return "";
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
+    // Try DALL‑E 3 first.
+    let response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -107,6 +108,25 @@ class ChatGPTItemGenerator {
       })
     });
     let data = await response.json();
+    // If DALL‑E 3 fails, try DALL‑E 2.
+    if (data.error || !data.data || !data.data[0]?.b64_json) {
+      console.warn("DALL‑E 3 call failed, falling back to DALL‑E 2", data.error);
+      response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.dalleApiKey}`
+        },
+        body: JSON.stringify({
+          model: "dall-e-2",
+          prompt: `Generate an image for a DnD 5e item with these details: ${prompt}. Do not include any text in the image.`,
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json"
+        })
+      });
+      data = await response.json();
+    }
     if (data.data && data.data[0]?.b64_json) {
       const dataUrl = `data:image/png;base64,${data.data[0].b64_json}`;
       const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
@@ -160,11 +180,9 @@ class ChatGPTItemGenerator {
    * ------------------------------- */
   transformWeaponDamage(damage) {
     if (!damage) return { parts: [] };
-    // If already formatted with a parts array, return as-is.
     if (damage.parts && Array.isArray(damage.parts)) {
       return damage;
     }
-    // If given as separate dice, modifier, and type
     if (damage.dice) {
       let formula = damage.dice;
       if (damage.modifier) {
@@ -219,8 +237,7 @@ class ChatGPTItemGenerator {
               typeNote +
               " Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. " +
               "The JSON must include a non-empty 'description' field (which starts with this marker) along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. " +
-              "If it's a weapon, include 'weaponProperties' and a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers; " +
-              "if it's armor, include 'armorType' and 'ac'. " +
+              "If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g. 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). " +
               "Decide if 'magical' is true or false. " +
               "Output valid JSON with double-quoted property names and no extra text."
           },
@@ -278,12 +295,13 @@ class ChatGPTItemGenerator {
     });
     let data = await response.json();
     let name = data.choices?.[0]?.message?.content?.trim() || "Unnamed";
-    return this.forceKeywordInName(name, prompt);
+    return this.forceKeywordInName(name, prompt, "");
   }
 
   // Helper: Force keyword from prompt into the generated name if missing.
-  forceKeywordInName(name, prompt) {
+  forceKeywordInName(name, prompt, desc = "") {
     const promptLC = prompt.toLowerCase();
+    const descLC = desc.toLowerCase();
     let forcedName = name;
     if (promptLC.includes("class change") && !name.toLowerCase().includes("class change")) {
       console.log("Forcing 'Class Change' into item name.");
@@ -303,8 +321,33 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
+   * New Helper: Refine Item Name Based on Description
+   * ------------------------------- */
+  async refineItemName(currentName, description) {
+    const prompt = `The current item name is: "${currentName}".
+The item description is: "${description}".
+Please provide a refined, improved item name that better reflects the details and flavor of the description. Output only the name in plain text.`;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "You are an expert in fantasy item naming." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 20
+      })
+    });
+    let data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || currentName;
+  }
+
+  /* --------------------------------
    * 4) Consistency Fix: Name vs. JSON
-   * Now accepts the original prompt for context and extracts the item name from the description if available.
    * ------------------------------- */
   async fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt) {
     let nameLC = itemName.toLowerCase();
@@ -411,8 +454,6 @@ Output only the descriptions, one per line, with no numbering or extra commentar
 
   /* --------------------------------
    * 5) Create Unique Item Document (for Roll Table Entries)
-   * Accepts an optional forcedName to override the generated name.
-   * Also accepts an explicitType parameter from the drop-down.
    * ------------------------------- */
   async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
     let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
@@ -421,12 +462,14 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     let rawJson = await this.generateItemJSON(combined, explicitType);
     let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawJson, combined);
     let parsed = await this.parseItemJSON(fixedJSON);
-    // If the item is a weapon and damage info is provided, transform it to the proper format.
+    // Transform weapon damage if applicable.
     const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
     if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
       parsed.damage = this.transformWeaponDamage(parsed.damage);
     }
+    this.updateProgressBar(60);
     let finalDesc = parsed.description || "No description provided.";
+    let refinedName = await this.refineItemName(generatedName, finalDesc);
     let foundryItemType = "equipment";
     if (explicitType) {
       const explicitMapping = {
@@ -475,8 +518,19 @@ Output only the descriptions, one per line, with no numbering or extra commentar
         }
       }
     }
+    // New: Handle nested type object.
+    let newItemType;
+    if (parsed.type && typeof parsed.type === "object") {
+      newItemType = parsed.type;
+    } else {
+      if (foundryItemType === "weapon") {
+        newItemType = { value: "simpleM", baseItem: "" };
+      } else {
+        newItemType = foundryItemType;
+      }
+    }
     let newItemData = {
-      name: generatedName,
+      name: refinedName,
       type: foundryItemType,
       img: imagePath || "icons/svg/d20-highlight.svg",
       system: {
@@ -484,27 +538,29 @@ Output only the descriptions, one per line, with no numbering or extra commentar
         rarity: parsed.rarity || "common",
         weight: parsed.weight || 1,
         price: { value: parsed.price || 100, denomination: "gp" },
-        // Updated attunement mapping
         attunement: parsed.requiresAttunement ? "required" : false,
         armor: { value: 10 },
         properties: [],
         activation: parsed.activation || { type: "", cost: 0 },
         uses: parsed.uses || {},
-        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null)
+        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
+        type: newItemType  // Nested type inserted here.
       }
     };
-    // Process weaponProperties regardless of whether it's an array or an object.
     if (foundryItemType === "weapon" && parsed.weaponProperties) {
       let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
       for (let wp of wpProps) {
         newItemData.system.properties.push(wp);
       }
     }
-    // Updated magical property logic: generate multiple magical property descriptions.
+    // Magic fix: Check both "magical" and "magic".
+    const isMagic = (
+      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
+      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
+    );
     const magList = ["rare", "very rare", "legendary", "artifact"];
     const rarityLower = (parsed.rarity || "").toLowerCase();
-    if (parsed.magical === true || (magList.includes(rarityLower) && Math.random() < 0.5)) {
-      // Determine a random count of magical properties (1 to 3)
+    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
       const count = Math.floor(Math.random() * 3) + 1;
       const magProps = await this.generateMagicalProperties(newItemData, count);
       if (magProps) {
@@ -523,7 +579,7 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     await Item.create(newItemData);
     this.updateProgressBar(100);
     this.hideProgressBar();
-    ui.notifications.info(`New D&D 5e item created: ${generatedName} (Image: ${imagePath})`);
+    ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
   }
 
   /* --------------------------------
@@ -591,7 +647,6 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     this.updateProgressBar(10);
     let combined = `${itemType} - ${itemDesc}` + (explicitType ? " - " + explicitType : "");
     let generatedName = await this.generateItemName(combined);
-    // Add "katana" to the recognized weapon keywords.
     const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
     let imagePath = await this.generateItemImageSilent(combined);
     this.updateProgressBar(20);
@@ -599,12 +654,12 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     this.updateProgressBar(40);
     let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
     let parsed = await this.parseItemJSON(fixedJSON);
-    // Transform weapon damage if applicable.
     if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
       parsed.damage = this.transformWeaponDamage(parsed.damage);
     }
     this.updateProgressBar(60);
     let finalDesc = parsed.description || "No description provided.";
+    let refinedName = await this.refineItemName(generatedName, finalDesc);
     let foundryItemType = "equipment";
     if (explicitType) {
       const explicitMapping = {
@@ -653,8 +708,19 @@ Output only the descriptions, one per line, with no numbering or extra commentar
         }
       }
     }
+    // New: Handle nested type object.
+    let newItemType;
+    if (parsed.type && typeof parsed.type === "object") {
+      newItemType = parsed.type;
+    } else {
+      if (foundryItemType === "weapon") {
+        newItemType = { value: "simpleM", baseItem: "" };
+      } else {
+        newItemType = foundryItemType;
+      }
+    }
     let newItemData = {
-      name: generatedName,
+      name: refinedName,
       type: foundryItemType,
       img: imagePath || "icons/svg/d20-highlight.svg",
       system: {
@@ -662,27 +728,29 @@ Output only the descriptions, one per line, with no numbering or extra commentar
         rarity: parsed.rarity || "common",
         weight: parsed.weight || 1,
         price: { value: parsed.price || 100, denomination: "gp" },
-        // Updated attunement mapping
         attunement: parsed.requiresAttunement ? "required" : false,
         armor: { value: 10 },
         properties: [],
         activation: parsed.activation || { type: "", cost: 0 },
         uses: parsed.uses || {},
-        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null)
+        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
+        type: newItemType  // Nested type information inserted here.
       }
     };
-    // Process weaponProperties regardless of whether it's an array or an object.
     if (foundryItemType === "weapon" && parsed.weaponProperties) {
       let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
       for (let wp of wpProps) {
         newItemData.system.properties.push(wp);
       }
     }
-    // Updated magical property logic: generate multiple magical property descriptions.
+    // Magic fix: Check both "magical" and "magic".
+    const isMagic = (
+      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
+      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
+    );
     const magList = ["rare", "very rare", "legendary", "artifact"];
     const rarityLower = (parsed.rarity || "").toLowerCase();
-    if (parsed.magical === true || (magList.includes(rarityLower) && Math.random() < 0.5)) {
-      // Determine a random count of magical properties (1 to 3)
+    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
       const count = Math.floor(Math.random() * 3) + 1;
       const magProps = await this.generateMagicalProperties(newItemData, count);
       if (magProps) {
@@ -701,7 +769,197 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     await Item.create(newItemData);
     this.updateProgressBar(100);
     this.hideProgressBar();
-    ui.notifications.info(`New D&D 5e item created: ${generatedName} (Image: ${imagePath})`);
+    ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
+  }
+
+  /* --------------------------------
+   * 6) Roll Table Generation Functions
+   * ------------------------------- */
+  async generateRollTableJSON(userPrompt) {
+    if (!this.apiKey) return "{}";
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a Foundry VTT assistant creating strictly valid JSON for a DnD 5e roll table. " +
+              "Output valid JSON with double-quoted property names and no extra commentary or text outside the JSON. " +
+              "No disclaimers, no line breaks before or after the JSON object. " +
+              "The JSON must include the following fields: 'name', 'formula', 'description', 'tableType', and 'entries'. " +
+              "For tables of type 'items', each entry must be an object with 'text', 'minRange', 'maxRange', 'weight', and 'documentCollection' set to 'Item'. " +
+              "For generic roll tables, include additional details from the prompt (e.g., city, biome, or theme details) to create tailored, descriptive entries. " +
+              "Ensure that the output contains exactly 20 entries. " +
+              "Output only the JSON object with no extra commentary."
+          },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 900
+      })
+    });
+    let data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || "{}";
+  }
+
+  async parseTableJSON(rawJSON) {
+    console.log("Raw Roll Table JSON from GPT:", rawJSON);
+    try {
+      return JSON.parse(rawJSON);
+    } catch (err1) {
+      console.warn("Could not parse roll table JSON, second GPT fix:", err1);
+      let fixed = await this.fixInvalidJSON(rawJSON);
+      try {
+        return JSON.parse(fixed);
+      } catch (err2) {
+        console.warn("Second GPT fix also invalid, sanitizer:", err2);
+        let sanitized = this.sanitizeJSON(rawJSON);
+        try {
+          return JSON.parse(sanitized);
+        } catch (err3) {
+          console.error("All attempts failed => empty table:", err3);
+          return { name: "", formula: "1d20", description: "", tableType: "generic", entries: [] };
+        }
+      }
+    }
+  }
+
+  /* --------------------------------
+   * 7) Normal Item Flow (Dialog Version)
+   * ------------------------------- */
+  async createFoundryItemFromDialog(itemType, itemDesc, explicitType) {
+    this.showProgressBar();
+    this.updateProgressBar(10);
+    let combined = `${itemType} - ${itemDesc}` + (explicitType ? " - " + explicitType : "");
+    let generatedName = await this.generateItemName(combined);
+    const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+    let imagePath = await this.generateItemImageSilent(combined);
+    this.updateProgressBar(20);
+    let rawItemJSON = await this.generateItemJSON(combined, explicitType);
+    this.updateProgressBar(40);
+    let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
+    let parsed = await this.parseItemJSON(fixedJSON);
+    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
+      parsed.damage = this.transformWeaponDamage(parsed.damage);
+    }
+    this.updateProgressBar(60);
+    let finalDesc = parsed.description || "No description provided.";
+    let refinedName = await this.refineItemName(generatedName, finalDesc);
+    let foundryItemType = "equipment";
+    if (explicitType) {
+      const explicitMapping = {
+        "Weapon": "weapon",
+        "Armor": "equipment",
+        "Equipment": "equipment",
+        "Consumable": "consumable",
+        "Tool": "tool",
+        "Loot": "loot",
+        "Spell": "spell"
+      };
+      foundryItemType = explicitMapping[explicitType] || "equipment";
+    } else {
+      if (parsed.itemType) {
+        let typeStr = parsed.itemType.toLowerCase();
+        const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+        if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
+          foundryItemType = "weapon";
+        } else {
+          const map = {
+            "armor": "equipment",
+            "potion": "consumable",
+            "scroll": "consumable",
+            "rod": "equipment",
+            "staff": "equipment",
+            "wand": "equipment",
+            "ammunition": "consumable",
+            "gear": "equipment",
+            "loot": "loot",
+            "tool": "tool"
+          };
+          foundryItemType = map[typeStr] || "equipment";
+        }
+      } else {
+        if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
+          foundryItemType = "weapon";
+        }
+        if (generatedName.toLowerCase().includes("potion")) {
+          foundryItemType = "consumable";
+        }
+        if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
+          const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
+          if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
+            foundryItemType = "weapon";
+          }
+        }
+      }
+    }
+    // Handle nested type object.
+    let newItemType;
+    if (parsed.type && typeof parsed.type === "object") {
+      newItemType = parsed.type;
+    } else {
+      if (foundryItemType === "weapon") {
+        newItemType = { value: "simpleM", baseItem: "" };
+      } else {
+        newItemType = foundryItemType;
+      }
+    }
+    let newItemData = {
+      name: refinedName,
+      type: foundryItemType,
+      img: imagePath || "icons/svg/d20-highlight.svg",
+      system: {
+        description: { value: finalDesc },
+        rarity: parsed.rarity || "common",
+        weight: parsed.weight || 1,
+        price: { value: parsed.price || 100, denomination: "gp" },
+        attunement: parsed.requiresAttunement ? "required" : false,
+        armor: { value: 10 },
+        properties: [],
+        activation: parsed.activation || { type: "", cost: 0 },
+        uses: parsed.uses || {},
+        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
+        type: newItemType
+      }
+    };
+    if (foundryItemType === "weapon" && parsed.weaponProperties) {
+      let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
+      for (let wp of wpProps) {
+        newItemData.system.properties.push(wp);
+      }
+    }
+    // Magic fix: Check both "magical" and "magic".
+    const isMagic = (
+      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
+      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
+    );
+    const magList = ["rare", "very rare", "legendary", "artifact"];
+    const rarityLower = (parsed.rarity || "").toLowerCase();
+    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
+      const count = Math.floor(Math.random() * 3) + 1;
+      const magProps = await this.generateMagicalProperties(newItemData, count);
+      if (magProps) {
+        newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
+      }
+    }
+    if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
+      let armorType = parsed.armorType || "medium";
+      let acValue = parsed.ac || 14;
+      newItemData.system.armor = {
+        value: acValue,
+        type: armorType,
+        dex: (armorType === "medium") ? 2 : null
+      };
+    }
+    await Item.create(newItemData);
+    this.updateProgressBar(100);
+    this.hideProgressBar();
+    ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
   }
 
   /* --------------------------------
@@ -726,7 +984,6 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     if (tableType === "items") {
       for (let entry of (parsedTable.entries || [])) {
         let textVal = entry.text || "Mysterious Item";
-        // For roll tables, force the entry text as the item name and pass the explicit type.
         let createdItem = await this.createUniqueItemDoc(textVal, textVal, explicitType);
         if (createdItem && createdItem.name) {
           results.push({
@@ -834,49 +1091,30 @@ Output only the descriptions, one per line, with no numbering or extra commentar
       },
       default: "generate",
       render: html => {
-        // Auto resize the dialog container so no scrolling is required.
         html.closest('.dialog').css({'height': 'auto', 'max-height': 'none'});
-
-        // Helper function to manage visibility
         const updateVisibility = () => {
           const objectType = html.find("#ai-object-type").val();
           const tableMode = html.find("#ai-table-type").val();
-
-          // Show the Roll Table Mode dropdown if generating a roll table; otherwise hide it.
           if (objectType === "rolltable") {
             html.find("#table-type-group").show();
           } else {
             html.find("#table-type-group").hide();
           }
-
-          // Show the Explicit Item Type if:
-          // 1) objectType === "item", OR
-          // 2) objectType === "rolltable" AND tableMode === "items"
           if (objectType === "item" || (objectType === "rolltable" && tableMode === "items")) {
             html.find("#explicit-type-group").show();
           } else {
             html.find("#explicit-type-group").hide();
           }
         };
-
-        // Initial check
         updateVisibility();
-
-        // On change of the "Generate" dropdown
-        html.find("#ai-object-type").on("change", () => {
-          updateVisibility();
-        });
-
-        // On change of the "Roll Table Mode" dropdown
-        html.find("#ai-table-type").on("change", () => {
-          updateVisibility();
-        });
+        html.find("#ai-object-type").on("change", () => updateVisibility());
+        html.find("#ai-table-type").on("change", () => updateVisibility());
       }
     }).render(true);
   }
 
   /* --------------------------------
-   * 10) Unified Entry Point (Legacy)
+   * 8) Unified Entry Point (Legacy)
    * ------------------------------- */
   async createFoundryAIObject() {
     await this.openGenerateDialog();
