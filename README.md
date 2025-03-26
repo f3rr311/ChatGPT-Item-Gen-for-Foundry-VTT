@@ -5,9 +5,9 @@
 
 ## Overview
 This module uses **ChatGPT** and **DALL·E 3** to dynamically generate **D&D 5e items** within Foundry VTT. You can prompt for an item type (weapon, armor, potion, etc.) and a brief description; the module will then:
-- **Generate a short, thematic item and name** via ChatGPT.
+- **Generates a short, thematic item and name** via ChatGPT.
 - **Produce a long, detailed description** with structured D&D 5e stats (e.g., rarity, magical flag, weapon properties, armor details, damage calculations).
-- **Generate and store an AI image locally** using Base64 encoding, ensuring that images persist across module updates.
+- **Generate and store an AI image locally** using Base64 encoding to download, ensuring that images persist across module updates.
 - **Create roll tables**, with tailored entries that include additional context (such as city, biome, or theme details) and Create items that are linked to roll tables at teh same time.
 
 ## Features
@@ -56,9 +56,6 @@ This module uses **ChatGPT** and **DALL·E 3** to dynamically generate **D&D 5e 
 ### Local Image Storage
 - Creates and verifies designated folders in the Foundry data directory.
 - Saves generated images using Base64 encoding, ensuring they are stored locally with proper error handling.
-
-### API Key Integration and Security
-- Moves API keys (for ChatGPT and DALL·E) to module settings for enhanced security and easier configuration.
 
 
 ## Setup & Usage
