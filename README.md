@@ -53,14 +53,16 @@ This module leverages **ChatGPT** and **DALL·E 3** to dynamically create **D&D 
 - **Persistent Storage:** Saves AI-generated images using Base64 encoding, ensuring local storage with robust error handling.
 
 ## Setup & Usage
-1. **Enable** the module in your world via `Game Settings > Manage Modules`.
-2. **Configure** your OpenAI API keys in `Game Settings > Configure Settings > ChatGPT Item Generator`.
-3. **Access** the Items tab (in Foundry v12, the button is integrated using the `renderItemDirectory` hook).
-4. **Click** the **Generate AI (Item or RollTable)** button to open the dialog, then choose whether to generate an item or a roll table.
-5. For roll tables:
+
+1. **Install from Foundry Module managment**  
+2. **Enable** the module in your world via `Game Settings > Manage Modules`.
+3. **Configure** your OpenAI API keys in `Game Settings > Configure Settings > ChatGPT Item Generator`.
+4. **Access** the Items tab (in Foundry v12, the button is integrated using the `renderItemDirectory` hook).
+6. **Click** the **Generate AI (Item or RollTable)** button to open the dialog, then choose whether to generate an item or a roll table.
+6. For roll tables:
    - Select "Items" mode to automatically create and link generated item documents.
    - Select "Generic" mode to produce a custom table with 20 descriptive entries.
-6. **Enjoy** your dynamically generated content!
+7. **Enjoy** your dynamically generated content!
 
 ## Troubleshooting & FAQ
 - **Common Issues:**
