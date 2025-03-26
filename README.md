@@ -77,6 +77,8 @@ This module uses **ChatGPT** and **DALL·E** to dynamically generate **D&D 5e it
   The module requires GPT to generate exactly 20 entries for generic roll tables. If the table is empty, try re-running the prompt with more specific environmental details.
 - **Damage Calculations:**  
   For weapons, if GPT provides a damage string (e.g., "1d8"), it is automatically converted into a structured damage object that matches the D&D 5e system’s requirements.
+
+I would like to see if others would like to contribute to this if they want.
   
 ## Support
 For issues or feature requests, visit [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues).
