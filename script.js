@@ -9,9 +9,10 @@ class ChatGPTItemGenerator {
   }
 
   static registerSettings() {
+    // OpenAI & DALL‑E API Keys
     game.settings.register("chatgpt-item-generator", "openaiApiKey", {
       name: "OpenAI API Key",
-      hint: "Enter your OpenAI API key to enable AI-generated item descriptions.",
+      hint: "Enter your OpenAI API key to enable AI-generated item descriptions. (Changing this will reload the module.)",
       scope: "world",
       config: true,
       type: String,
@@ -20,11 +21,114 @@ class ChatGPTItemGenerator {
     });
     game.settings.register("chatgpt-item-generator", "dalleApiKey", {
       name: "DALL·E API Key",
-      hint: "Enter your OpenAI API key for DALL·E to enable AI-generated images.",
+      hint: "Enter your OpenAI API key for DALL·E to enable AI-generated images. (Changing this will reload the module.)",
       scope: "world",
       config: true,
       type: String,
       default: "",
+      onChange: value => window.location.reload()
+    });
+    // Stable Diffusion settings
+    game.settings.register("chatgpt-item-generator", "stableDiffusionEnabled", {
+      name: "Use Stable Diffusion for Image Generation",
+      hint: "Toggle to use Stable Diffusion instead of DALL‑E for generating item images.",
+      scope: "world",
+      config: true,
+      type: Boolean,
+      default: false,
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "stableDiffusionAPIKey", {
+      name: "Stable Diffusion API Key",
+      hint: "Enter your Stable Diffusion API key (if required) for generating images.",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "",
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "stableDiffusionEndpoint", {
+      name: "Stable Diffusion API Endpoint",
+      hint: "Enter the endpoint URL for your Stable Diffusion image generation service.",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "http://127.0.0.1:7860/sd-queue/txt2img",
+      onChange: value => window.location.reload()
+    });
+    // New Stable Diffusion prompt settings
+    game.settings.register("chatgpt-item-generator", "sdMainPrompt", {
+      name: "Stable Diffusion Main Prompt",
+      hint: "Base prompt for image generation. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect image quality.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "Refined, highly detailed, fantasy concept art for a DnD 5e item with these details: {prompt}. Do not include any text in the image.",
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "sdNegativePrompt", {
+      name: "Stable Diffusion Negative Prompt",
+      hint: "Terms to exclude from the generated image. (Disclaimer: Editing this may affect image quality.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "rough sketch, blurry, cartoonish, text, watermark, signature, low detail",
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "sdSteps", {
+      name: "Stable Diffusion Steps",
+      hint: "Number of steps to generate the image. (Disclaimer: Higher values may increase generation time.)",
+      scope: "world",
+      config: true,
+      type: Number,
+      default: 70,
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "sdCfgScale", {
+      name: "Stable Diffusion CFG Scale",
+      hint: "Controls how strongly the model follows the prompt. (Disclaimer: Higher values enforce the prompt more strictly.)",
+      scope: "world",
+      config: true,
+      type: Number,
+      default: 9.0,
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "sdSamplerName", {
+      name: "Stable Diffusion Sampler Name",
+      hint: "Name of the sampler to use. (Disclaimer: Ensure this matches one available on your Stable Diffusion instance.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "Euler",
+      onChange: value => window.location.reload()
+    });
+    // ChatGPT prompt settings
+    game.settings.register("chatgpt-item-generator", "chatgptNamePrompt", {
+      name: "ChatGPT Item Name Prompt",
+      hint: "Prompt for ChatGPT to generate a short item name. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect output.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "You are an expert in fantasy RPGs. Generate a short item name in plain text. Do not include the word 'dragon' unless explicitly requested. No JSON.",
+      onChange: value => window.location.reload()
+    });
+    game.settings.register("chatgpt-item-generator", "chatgptJSONPrompt", {
+      name: "ChatGPT Item JSON Prompt",
+      hint: "Prompt for ChatGPT to generate structured JSON for an item. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect output.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "You are a Foundry VTT assistant creating structured JSON for a single, consistent DnD 5e item. Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. The JSON must include a non-empty 'description' field along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g., 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). Decide if 'magical' is true or false. Output valid JSON with double-quoted property names and no extra text.",
+      onChange: value => window.location.reload()
+    });
+    // DALL‑E prompt setting
+    game.settings.register("chatgpt-item-generator", "dallePrompt", {
+      name: "DALL‑E Prompt",
+      hint: "Prompt for DALL‑E image generation. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect image output.)",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "Generate an image for a DnD 5e item with these details: {prompt}. Do not include any text in the image.",
       onChange: value => window.location.reload()
     });
   }
@@ -90,10 +194,96 @@ class ChatGPTItemGenerator {
   }
 
   /* --------------------------------
-   * 2) Image Generation with Base64 & Local Saving (with DALL‑E 2 fallback)
+   * New Helper: Extract Valid JSON
+   * ------------------------------- */
+  extractValidJSON(raw) {
+    // Match everything from the first { to the last } across multiple lines.
+    const match = raw.match(/{[\s\S]*}/);
+    if (match) {
+      let jsonText = match[0];
+      // Remove any trailing commas that may cause parsing issues.
+      jsonText = jsonText.replace(/,(?=\s*[}\]])/g, "");
+      return jsonText;
+    }
+    return raw;
+  }
+
+  /* --------------------------------
+   * 2) Image Generation with Base64 & Local Saving
    * ------------------------------- */
   async generateItemImageSilent(prompt) {
+    // Check if Stable Diffusion is enabled
+    const useSD = game.settings.get("chatgpt-item-generator", "stableDiffusionEnabled");
+    if (useSD) {
+      try {
+        const sdAPIKey = game.settings.get("chatgpt-item-generator", "stableDiffusionAPIKey");
+        const sdEndpoint = game.settings.get("chatgpt-item-generator", "stableDiffusionEndpoint");
+        // Build payload using the settings (replace {prompt} placeholder)
+        const payload = {
+          prompt: `Generate an image for a DnD 5e item with these details: ${prompt}. Do not include any text in the image.`,
+          negative_prompt: "",
+          styles: [],
+          seed: -1,
+          subseed: -1,
+          subseed_strength: 0,
+          seed_resize_from_w: -1,
+          seed_resize_from_h: -1,
+          sampler_name: "Euler",
+          batch_size: 1,
+          n_iter: 1,
+          steps: 50,
+          cfg_scale: 7.0,
+          width: 1024,
+          height: 1024,
+          restore_faces: false,
+          tiling: false,
+          do_not_save_samples: false,
+          do_not_save_grid: false,
+          send_images: true,
+          save_images: false
+        };
+        let response = await fetch(sdEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(sdAPIKey && { "Authorization": `Bearer ${sdAPIKey}` })
+          },
+          body: JSON.stringify(payload)
+        });
+        let data = await response.json();
+        // If the API returns an image immediately, use it.
+        if (data && data.image) {
+          const dataUrl = `data:image/png;base64,${data.image}`;
+          const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
+          const targetFolder = this.imageFolder;
+          await this.createFolder(targetFolder);
+          await this.checkFolder(targetFolder);
+          const localPath = await this.saveImageLocally(dataUrl, fileName, targetFolder);
+          return localPath;
+        }
+        // If no image is returned but a task id is provided, poll until done.
+        else if (data && data.task_id) {
+          console.log("Stable Diffusion image is being generated. Polling for result...");
+          const imageBase64 = await this.pollStableDiffusionStatus(data.task_id);
+          if (imageBase64) {
+            const dataUrl = `data:image/png;base64,${imageBase64}`;
+            const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
+            const targetFolder = this.imageFolder;
+            await this.createFolder(targetFolder);
+            await this.checkFolder(targetFolder);
+            const localPath = await this.saveImageLocally(dataUrl, fileName, targetFolder);
+            return localPath;
+          }
+        }
+        console.warn("Stable Diffusion did not return an image, falling back to DALL‑E.");
+      } catch (err) {
+        console.error("Error generating image with Stable Diffusion:", err);
+        console.warn("Falling back to DALL‑E.");
+      }
+    }
+    // Fallback to DALL‑E
     if (!this.dalleApiKey) return "";
+    const dallePrompt = game.settings.get("chatgpt-item-generator", "dallePrompt");
     // Try DALL‑E 3 first.
     let response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
@@ -103,14 +293,14 @@ class ChatGPTItemGenerator {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `Generate an image for a DnD 5e item with these details: ${prompt}. Do not include any text in the image.`,
+        prompt: dallePrompt.replace("{prompt}", prompt),
         n: 1,
         size: "1024x1024",
         response_format: "b64_json"
       })
     });
     let data = await response.json();
-    // If DALL‑E 3 fails, try DALL‑E 2.
+    // Fallback to DALL‑E 2 if necessary.
     if (data.error || !data.data || !data.data[0]?.b64_json) {
       console.warn("DALL‑E 3 call failed, falling back to DALL‑E 2", data.error);
       response = await fetch("https://api.openai.com/v1/images/generations", {
@@ -121,7 +311,7 @@ class ChatGPTItemGenerator {
         },
         body: JSON.stringify({
           model: "dall-e-2",
-          prompt: `Generate an image for a DnD 5e item with these details: ${prompt}. Do not include any text in the image.`,
+          prompt: dallePrompt.replace("{prompt}", prompt),
           n: 1,
           size: "1024x1024",
           response_format: "b64_json"
@@ -139,6 +329,34 @@ class ChatGPTItemGenerator {
       return localPath;
     }
     return "";
+  }
+
+  // Helper function to poll for the Stable Diffusion result until status is "completed"
+  async pollStableDiffusionStatus(taskId) {
+    const sdStatusEndpoint = `http://127.0.0.1:7860/sd-queue/${taskId}/status`;
+    const maxAttempts = 60;
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      try {
+        let response = await fetch(sdStatusEndpoint);
+        let data = await response.json();
+        // Wait until the status field indicates the task is completed.
+        if (data && data.status && data.status.toLowerCase() === "completed") {
+          if (data.image) {
+            return data.image;
+          } else if (data.images && data.images.length > 0) {
+            return data.images[0];
+          } else if (data.result && data.result.images && data.result.images.length > 0) {
+            return data.result.images[0];
+          }
+        }
+      } catch (err) {
+        console.error("Error polling stable diffusion status:", err);
+      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      attempt++;
+    }
+    return null;
   }
 
   async createFolder(folderPath) {
@@ -170,7 +388,7 @@ class ChatGPTItemGenerator {
     try {
       const upload = await FilePicker.upload("data", targetFolder, file, { notify: false });
       console.log("Saved image locally:", upload);
-      return `${targetFolder}/${fileName}`;
+      return upload.path;
     } catch (err) {
       console.error("Error saving image locally:", err);
       return "";
@@ -182,13 +400,26 @@ class ChatGPTItemGenerator {
    * ------------------------------- */
   transformWeaponDamage(damage) {
     if (!damage) return { parts: [] };
-    if (damage.parts && Array.isArray(damage.parts)) {
+
+    // If damage is already an array, wrap it in the expected object format.
+    if (Array.isArray(damage)) {
+      return { parts: damage };
+    }
+
+    // If damage.parts exists, ensure it's an array.
+    if (damage.parts !== undefined) {
+      if (!Array.isArray(damage.parts)) {
+        // Wrap non-array parts in an array if necessary.
+        damage.parts = [damage.parts];
+      }
       return damage;
     }
+
+    // If damage has a dice property, build the parts array from it.
     if (damage.dice) {
       let formula = damage.dice;
       if (damage.modifier) {
-        let mod = damage.modifier;
+        let mod = damage.modifier.toString();
         if (!mod.startsWith('+') && !mod.startsWith('-')) {
           mod = '+' + mod;
         }
@@ -197,6 +428,8 @@ class ChatGPTItemGenerator {
       let damageType = damage.type || "";
       return { parts: [[formula, damageType]] };
     }
+
+    // Fallback in case none of the expected fields are present.
     return { parts: [] };
   }
 
@@ -238,8 +471,8 @@ class ChatGPTItemGenerator {
               "You are a Foundry VTT assistant creating structured JSON for a single, consistent DnD 5e item." +
               typeNote +
               " Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. " +
-              "The JSON must include a non-empty 'description' field (which starts with this marker) along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. " +
-              "If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g. 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). " +
+              "The JSON must include a non-empty 'description' field along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. " +
+              "If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g., 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). " +
               "Decide if 'magical' is true or false. " +
               "Output valid JSON with double-quoted property names and no extra text."
           },
@@ -326,6 +559,8 @@ class ChatGPTItemGenerator {
    * New Helper: Refine Item Name Based on Description
    * ------------------------------- */
   async refineItemName(currentName, description) {
+    // If a name override was provided, skip refinement.
+    if (currentName && currentName.trim().length > 0) return currentName;
     const prompt = `The current item name is: "${currentName}".
 The item description is: "${description}".
 Please provide a refined, improved item name that better reflects the details and flavor of the description. Output only the name in plain text.`;
@@ -458,20 +693,30 @@ Output only the descriptions, one per line, with no numbering or extra commentar
    * 5) Create Unique Item Document (for Roll Table Entries)
    * ------------------------------- */
   async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
+    // Show the progress bar at the very beginning
+    this.showProgressBar();
+    
     let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
-    let generatedName = forcedName ? forcedName : await this.generateItemName(combined);
-    let imagePath = await this.generateItemImageSilent(combined);
-    let rawJson = await this.generateItemJSON(combined, explicitType);
-    let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawJson, combined);
-    let parsed = await this.parseItemJSON(fixedJSON);
-    // Transform weapon damage if applicable.
+    // Use the override if provided; otherwise generate a name.
+    let generatedName = (forcedName && forcedName.trim().length > 0)
+      ? forcedName
+      : await this.generateItemName(combined);
     const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
-    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
+    let imagePath = await this.generateItemImageSilent(combined);
+    this.updateProgressBar(20);
+    let rawItemJSON = await this.generateItemJSON(combined, explicitType);
+    this.updateProgressBar(40);
+    let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
+    let parsed = await this.parseItemJSON(fixedJSON);
+    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) ) {
       parsed.damage = this.transformWeaponDamage(parsed.damage);
     }
     this.updateProgressBar(60);
     let finalDesc = parsed.description || "No description provided.";
-    let refinedName = await this.refineItemName(generatedName, finalDesc);
+    // If a forced name override was provided, skip refining.
+    let refinedName = (forcedName && forcedName.trim().length > 0)
+      ? forcedName
+      : await this.refineItemName(generatedName, finalDesc);
     let foundryItemType = "equipment";
     if (explicitType) {
       const explicitMapping = {
@@ -578,10 +823,12 @@ Output only the descriptions, one per line, with no numbering or extra commentar
         dex: (armorType === "medium") ? 2 : null
       };
     }
-    await Item.create(newItemData);
+    // Create the item and return it.
+    let createdItem = await Item.create(newItemData);
     this.updateProgressBar(100);
     this.hideProgressBar();
     ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
+    return createdItem;
   }
 
   /* --------------------------------
@@ -589,6 +836,7 @@ Output only the descriptions, one per line, with no numbering or extra commentar
    * ------------------------------- */
   async generateRollTableJSON(userPrompt) {
     if (!this.apiKey) return "{}";
+    // Updated prompt: now instructs to output strictly valid JSON
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -602,13 +850,11 @@ Output only the descriptions, one per line, with no numbering or extra commentar
             role: "system",
             content:
               "You are a Foundry VTT assistant creating strictly valid JSON for a DnD 5e roll table. " +
-              "Output valid JSON with double-quoted property names and no extra commentary or text outside the JSON. " +
-              "No disclaimers, no line breaks before or after the JSON object. " +
+              "Output only a valid JSON object with double-quoted property names and no extra commentary or text before or after the JSON object. " +
               "The JSON must include the following fields: 'name', 'formula', 'description', 'tableType', and 'entries'. " +
               "For tables of type 'items', each entry must be an object with 'text', 'minRange', 'maxRange', 'weight', and 'documentCollection' set to 'Item'. " +
-              "For generic roll tables, include additional details from the prompt (e.g., city, biome, or theme details) to create tailored, descriptive entries. " +
-              "Ensure that the output contains exactly 20 entries. " +
-              "Output only the JSON object with no extra commentary."
+              "For generic roll tables, include additional details from the prompt to create tailored, descriptive entries. " +
+              "Ensure that the output contains exactly 20 entries."
           },
           { role: "user", content: userPrompt }
         ],
@@ -629,10 +875,10 @@ Output only the descriptions, one per line, with no numbering or extra commentar
       try {
         return JSON.parse(fixed);
       } catch (err2) {
-        console.warn("Second GPT fix also invalid, sanitizer:", err2);
-        let sanitized = this.sanitizeJSON(rawJSON);
+        console.warn("Second GPT fix also invalid, attempting extraction:", err2);
+        let extracted = this.extractValidJSON(rawJSON);
         try {
-          return JSON.parse(sanitized);
+          return JSON.parse(extracted);
         } catch (err3) {
           console.error("All attempts failed => empty table:", err3);
           return { name: "", formula: "1d20", description: "", tableType: "generic", entries: [] };
@@ -642,141 +888,110 @@ Output only the descriptions, one per line, with no numbering or extra commentar
   }
 
   /* --------------------------------
-   * 7) Normal Item Flow (Dialog Version)
+   * 7) Unified Dialog Entry Point
    * ------------------------------- */
-  async createFoundryItemFromDialog(itemType, itemDesc, explicitType) {
-    this.showProgressBar();
-    this.updateProgressBar(10);
-    let combined = `${itemType} - ${itemDesc}` + (explicitType ? " - " + explicitType : "");
-    let generatedName = await this.generateItemName(combined);
-    const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
-    let imagePath = await this.generateItemImageSilent(combined);
-    this.updateProgressBar(20);
-    let rawItemJSON = await this.generateItemJSON(combined, explicitType);
-    this.updateProgressBar(40);
-    let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
-    let parsed = await this.parseItemJSON(fixedJSON);
-    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
-      parsed.damage = this.transformWeaponDamage(parsed.damage);
-    }
-    this.updateProgressBar(60);
-    let finalDesc = parsed.description || "No description provided.";
-    let refinedName = await this.refineItemName(generatedName, finalDesc);
-    let foundryItemType = "equipment";
-    if (explicitType) {
-      const explicitMapping = {
-        "Weapon": "weapon",
-        "Armor": "equipment",
-        "Equipment": "equipment",
-        "Consumable": "consumable",
-        "Tool": "tool",
-        "Loot": "loot",
-        "Spell": "spell"
-      };
-      foundryItemType = explicitMapping[explicitType] || "equipment";
-    } else {
-      if (parsed.itemType) {
-        let typeStr = parsed.itemType.toLowerCase();
-        const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
-        if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
-          foundryItemType = "weapon";
-        } else {
-          const map = {
-            "armor": "equipment",
-            "potion": "consumable",
-            "scroll": "consumable",
-            "rod": "equipment",
-            "staff": "equipment",
-            "wand": "equipment",
-            "ammunition": "consumable",
-            "gear": "equipment",
-            "loot": "loot",
-            "tool": "tool"
-          };
-          foundryItemType = map[typeStr] || "equipment";
-        }
-      } else {
-        if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
-          foundryItemType = "weapon";
-        }
-        if (generatedName.toLowerCase().includes("potion")) {
-          foundryItemType = "consumable";
-        }
-        if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
-          const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
-          if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
-            foundryItemType = "weapon";
+  async openGenerateDialog() {
+    new Dialog({
+      title: "Generate AI Object",
+      content: `
+        <form>
+          <div class="form-group">
+            <label>Generate:</label>
+            <select id="ai-object-type" style="width: 100%;">
+              <option value="item">Item</option>
+              <option value="rolltable">Roll Table</option>
+            </select>
+          </div>
+          <div class="form-group" id="explicit-type-group">
+            <label>Explicit Item Type:</label>
+            <select id="ai-explicit-type" style="width: 100%;">
+              <option value="Weapon">Weapon</option>
+              <option value="Armor">Armor</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Tool">Tool</option>
+              <option value="Loot">Loot</option>
+              <option value="Spell">Spell</option>
+            </select>
+          </div>
+          <div class="form-group" id="table-type-group" style="display: none;">
+            <label>Roll Table Mode:</label>
+            <select id="ai-table-type" style="width: 100%;">
+              <option value="items">Items</option>
+              <option value="generic">Generic</option>
+            </select>
+          </div>
+          <div class="form-group" id="name-override-group">
+            <label>Name Override (Optional):</label>
+            <input id="ai-name-override" type="text" style="width: 100%;" placeholder="Leave blank to auto-generate" />
+          </div>
+          <div class="form-group">
+            <label>Description (or Prompt):</label>
+            <input id="ai-description" type="text" style="width: 100%;" />
+          </div>
+        </form>
+      `,
+      buttons: {
+        generate: {
+          label: "Generate",
+          callback: async (html) => {
+            const objectType = html.find("#ai-object-type").val();
+            const desc = html.find("#ai-description").val();
+            const explicitType = html.find("#ai-explicit-type").val();
+            const nameOverride = html.find("#ai-name-override").val();
+            if (!desc) return ui.notifications.error("Description is required");
+
+            if (objectType === "rolltable") {
+              const tableMode = html.find("#ai-table-type").val();
+              await game.chatGPTItemGenerator.createFoundryRollTableFromDialog(`${desc} -- tableType=${tableMode}`, explicitType);
+            } else {
+              await game.chatGPTItemGenerator.createFoundryItemFromDialog(desc, "", explicitType, nameOverride);
+            }
           }
-        }
+        },
+        cancel: { label: "Cancel" }
+      },
+      default: "generate",
+      render: html => {
+        html.closest('.dialog').css({'height': 'auto', 'max-height': 'none'});
+        const updateVisibility = () => {
+          const objectType = html.find("#ai-object-type").val();
+          const tableMode = html.find("#ai-table-type").val();
+          if (objectType === "rolltable") {
+            html.find("#table-type-group").show();
+            // Hide name override when roll table is selected.
+            html.find("#name-override-group").hide();
+          } else {
+            html.find("#table-type-group").hide();
+            html.find("#name-override-group").show();
+          }
+          if (objectType === "item" || (objectType === "rolltable" && tableMode === "items")) {
+            html.find("#explicit-type-group").show();
+          } else {
+            html.find("#explicit-type-group").hide();
+          }
+        };
+        updateVisibility();
+        html.find("#ai-object-type").on("change", () => updateVisibility());
+        html.find("#ai-table-type").on("change", () => updateVisibility());
       }
-    }
-    // New: Handle nested type object.
-    let newItemType;
-    if (parsed.type && typeof parsed.type === "object") {
-      newItemType = parsed.type;
-    } else {
-      if (foundryItemType === "weapon") {
-        newItemType = { value: "simpleM", baseItem: "" };
-      } else {
-        newItemType = foundryItemType;
-      }
-    }
-    let newItemData = {
-      name: refinedName,
-      type: foundryItemType,
-      img: imagePath || "icons/svg/d20-highlight.svg",
-      system: {
-        description: { value: finalDesc },
-        rarity: parsed.rarity || "common",
-        weight: parsed.weight || 1,
-        price: { value: parsed.price || 100, denomination: "gp" },
-        attunement: parsed.requiresAttunement ? "required" : false,
-        armor: { value: 10 },
-        properties: [],
-        activation: parsed.activation || { type: "", cost: 0 },
-        uses: parsed.uses || {},
-        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
-        type: newItemType  // Nested type information inserted here.
-      }
-    };
-    if (foundryItemType === "weapon" && parsed.weaponProperties) {
-      let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
-      for (let wp of wpProps) {
-        newItemData.system.properties.push(wp);
-      }
-    }
-    // Magic fix: Check both "magical" and "magic".
-    const isMagic = (
-      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
-      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
-    );
-    const magList = ["rare", "very rare", "legendary", "artifact"];
-    const rarityLower = (parsed.rarity || "").toLowerCase();
-    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
-      const count = Math.floor(Math.random() * 3) + 1;
-      const magProps = await this.generateMagicalProperties(newItemData, count);
-      if (magProps) {
-        newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
-      }
-    }
-    if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
-      let armorType = parsed.armorType || "medium";
-      let acValue = parsed.ac || 14;
-      newItemData.system.armor = {
-        value: acValue,
-        type: armorType,
-        dex: (armorType === "medium") ? 2 : null
-      };
-    }
-    await Item.create(newItemData);
-    this.updateProgressBar(100);
-    this.hideProgressBar();
-    ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
+    }).render(true);
   }
 
   /* --------------------------------
-   * 6) Roll Table Flow (Dialog Version)
+   * 8) Unified Entry Point (Legacy)
    * ------------------------------- */
+  async createFoundryAIObject() {
+    await this.openGenerateDialog();
+  }
+
+  // Missing method added as a simple wrapper for backward compatibility.
+  async createFoundryItemFromDialog(itemType, itemDesc, explicitType, nameOverride = "") {
+    // Here we simply call createUniqueItemDoc with itemType as the prompt.
+    return this.createUniqueItemDoc(itemType, nameOverride, explicitType);
+  }
+
+  // Added missing roll table generation method.
   async createFoundryRollTableFromDialog(tableDesc, explicitType) {
     this.showProgressBar();
     this.updateProgressBar(10);
@@ -840,96 +1055,6 @@ Output only the descriptions, one per line, with no numbering or extra commentar
     this.updateProgressBar(100);
     this.hideProgressBar();
     ui.notifications.info(`New Roll Table created: ${newTable.name}`);
-  }
-
-  /* --------------------------------
-   * 7) Unified Dialog Entry Point
-   * ------------------------------- */
-  async openGenerateDialog() {
-    new Dialog({
-      title: "Generate AI Object",
-      content: `
-        <form>
-          <div class="form-group">
-            <label>Generate:</label>
-            <select id="ai-object-type" style="width: 100%;">
-              <option value="item">Item</option>
-              <option value="rolltable">Roll Table</option>
-            </select>
-          </div>
-          <div class="form-group" id="explicit-type-group">
-            <label>Explicit Item Type:</label>
-            <select id="ai-explicit-type" style="width: 100%;">
-              <option value="Weapon">Weapon</option>
-              <option value="Armor">Armor</option>
-              <option value="Equipment">Equipment</option>
-              <option value="Consumable">Consumable</option>
-              <option value="Tool">Tool</option>
-              <option value="Loot">Loot</option>
-              <option value="Spell">Spell</option>
-            </select>
-          </div>
-          <div class="form-group" id="table-type-group" style="display: none;">
-            <label>Roll Table Mode:</label>
-            <select id="ai-table-type" style="width: 100%;">
-              <option value="items">Items</option>
-              <option value="generic">Generic</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Description (or Prompt):</label>
-            <input id="ai-description" type="text" style="width: 100%;" />
-          </div>
-        </form>
-      `,
-      buttons: {
-        generate: {
-          label: "Generate",
-          callback: async (html) => {
-            const objectType = html.find("#ai-object-type").val();
-            const desc = html.find("#ai-description").val();
-            const explicitType = html.find("#ai-explicit-type").val();
-            if (!desc) return ui.notifications.error("Description is required");
-
-            if (objectType === "rolltable") {
-              const tableMode = html.find("#ai-table-type").val();
-              await this.createFoundryRollTableFromDialog(`${desc} -- tableType=${tableMode}`, explicitType);
-            } else {
-              await this.createFoundryItemFromDialog(desc, "", explicitType);
-            }
-          }
-        },
-        cancel: { label: "Cancel" }
-      },
-      default: "generate",
-      render: html => {
-        html.closest('.dialog').css({'height': 'auto', 'max-height': 'none'});
-        const updateVisibility = () => {
-          const objectType = html.find("#ai-object-type").val();
-          const tableMode = html.find("#ai-table-type").val();
-          if (objectType === "rolltable") {
-            html.find("#table-type-group").show();
-          } else {
-            html.find("#table-type-group").hide();
-          }
-          if (objectType === "item" || (objectType === "rolltable" && tableMode === "items")) {
-            html.find("#explicit-type-group").show();
-          } else {
-            html.find("#explicit-type-group").hide();
-          }
-        };
-        updateVisibility();
-        html.find("#ai-object-type").on("change", () => updateVisibility());
-        html.find("#ai-table-type").on("change", () => updateVisibility());
-      }
-    }).render(true);
-  }
-
-  /* --------------------------------
-   * 8) Unified Entry Point (Legacy)
-   * ------------------------------- */
-  async createFoundryAIObject() {
-    await this.openGenerateDialog();
   }
 }
 
