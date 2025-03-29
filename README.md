@@ -104,6 +104,8 @@ This module leverages **ChatGPT**, **DALL·E 3**, and **Stable Diffusion** to dy
   For weapons, any provided damage string (e.g., "1d8") is automatically converted into a structured damage object that aligns with D&D 5e system requirements.
 - **Media Optimizer Compatibility:**  
   Generated images are processed to be compatible with the Media Optimizer module, ensuring they are optimized for web delivery.
+- **Stable Diffusion Settings:**  
+  You will need to add the following to your webui-user.bat/sh file: `set COMMANDLINE_ARGS=--cors-allow-origins="*" --api` and `set API_KEY=yourkey`
 
 ## Support
 For issues or feature requests, please visit [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues).
