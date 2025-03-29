@@ -1,4 +1,20 @@
 # Changelog
+
+## v1.0.6 - Enhanced Features & New Integrations
+- ✅**Stable Diffusion Integration**
+  - Added support for using Stable Diffusion as an alternative to DALL‑E for image generation.
+  - Introduced new settings:
+    - **Stable Diffusion Enabled** – Toggle to choose between Stable Diffusion and DALL‑E.
+    - **Stable Diffusion API Key** and **Stable Diffusion API Endpoint** – Configurable access details.
+    - **Stable Diffusion Prompt Settings** – New settings for Main Prompt (`sdMainPrompt`), Negative Prompt (`sdNegativePrompt`), Steps (`sdSteps`), CFG Scale (`sdCfgScale`), and Sampler Name (`sdSamplerName`).
+  - Updated image generation flow to poll for Stable Diffusion task completion before falling back to DALL‑E.
+- ✅**ChatGPT Prompt Customization**
+  - Made ChatGPT prompts configurable through settings:
+    - **ChatGPT Item Name Prompt** – Custom prompt for generating concise item names.
+    - **ChatGPT Item JSON Prompt** – Custom prompt for generating structured JSON.
+  - Improved logic to force inclusion or removal of keywords based on the prompt.
+- ✅**Media Optimizer Support**
+  - Updated image saving functions to ensure compatibility with the Media Optimizer module, preserving file naming and conversion behavior.
 ## v1.0.5 - Latest Improvements & Fixes
   ✅ **API Key Change--
   When the OpenAI API key is changed it now refreshes the session to apply the API token to the script. 
