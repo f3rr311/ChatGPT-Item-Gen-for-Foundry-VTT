@@ -1,4 +1,7 @@
 # Changelog
+## v1.0.5 - Latest Improvements & Fixes
+  ✅ **API Key Change--
+  When the OpenAI API key is changed it now refreshes the session to apply the API token to the script. 
 ## v1.0.4 - Latest Improvements & Fixes
 - ✅ **Nested Type Handling:--
   The code now checks if the parsed JSON includes a nested type object. If present, that object is used for the item's type information; otherwise, for weapons it defaults to { value: "simpleM", baseItem: "" }.
