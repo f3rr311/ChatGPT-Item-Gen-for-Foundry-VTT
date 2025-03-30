@@ -1,5 +1,5 @@
 # Changelog
-## v1.0.6 - Enhanced Features & New Integrations
+## v1.0.7 - Enhanced Features & New Integrations
 - ✅Bugfix for Item JSON
   - Corrected issue with the script not following the item JSON setting
 ## v1.0.6 - Enhanced Features & New Integrations
