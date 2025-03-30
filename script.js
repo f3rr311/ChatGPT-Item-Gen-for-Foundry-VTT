@@ -102,29 +102,50 @@ class ChatGPTItemGenerator {
       default: "Euler",
       onChange: value => window.location.reload()
     });
-    // ChatGPT prompt settings
-    game.settings.register("chatgpt-item-generator", "chatgptNamePrompt", {
-      name: "ChatGPT Item Name Prompt",
-      hint: "Prompt for ChatGPT to generate a short item name. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect output.)",
+    // ChatGPT prompt settings for item JSON extra instructions
+    game.settings.register("chatgpt-item-generator", "chatgptJSONPrompt", {
+      name: "ChatGPT Item JSON Prompt (Editable Portion)",
+      hint: "Enter any additional instructions for generating the item JSON. The essential JSON formatting is fixed and cannot be changed.",
       scope: "world",
       config: true,
       type: String,
-      default: "You are an expert in fantasy RPGs. Generate a short item name in plain text. Do not include the word 'dragon' unless explicitly requested. No JSON.",
+      default: "",
       onChange: value => window.location.reload()
     });
-    game.settings.register("chatgpt-item-generator", "chatgptJSONPrompt", {
-      name: "ChatGPT Item JSON Prompt",
-      hint: "Prompt for ChatGPT to generate structured JSON for an item. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect output.)",
+    // ChatGPT prompt settings for roll table JSON extra instructions
+    game.settings.register("chatgpt-item-generator", "chatgptRollTablePrompt", {
+      name: "ChatGPT Item Roll Table JSON Prompt (Editable Portion)",
+      hint: "Enter any additional instructions for generating the roll table JSON. The essential JSON formatting is fixed and cannot be changed.",
       scope: "world",
       config: true,
       type: String,
-      default: "You are a Foundry VTT assistant creating structured JSON for a single, consistent DnD 5e item. Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. The JSON must include a non-empty 'description' field along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g., 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). Decide if 'magical' is true or false. Output valid JSON with double-quoted property names and no extra text.",
+      default: "You are an expert in fantasy RPGs. Generate distinctive, evocative item names for the roll table",
+      onChange: value => window.location.reload()
+    });
+    // ChatGPT prompt settings for JSON mismatch fix extra instructions
+    game.settings.register("chatgpt-item-generator", "chatgptFixMismatchPrompt", {
+      name: "ChatGPT Fix Mismatch Prompt (Editable Portion)",
+      hint: "Enter any additional instructions for fixing the JSON mismatch. The essential JSON formatting is fixed and cannot be changed.",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "",
+      onChange: value => window.location.reload()
+    });
+    // ChatGPT prompt settings for item name extra instructions
+    game.settings.register("chatgpt-item-generator", "chatgptNamePrompt", {
+      name: "ChatGPT Item Name Prompt (Editable Portion)",
+      hint: "Enter any additional instructions for generating the item name. The fixed instruction 'Do not output JSON.' is enforced and cannot be changed.",
+      scope: "world",
+      config: true,
+      type: String,
+      default: "You are an expert in fantasy RPGs. Do not include the word 'dragon' unless explicitly requested.",
       onChange: value => window.location.reload()
     });
     // DALL‑E prompt setting
     game.settings.register("chatgpt-item-generator", "dallePrompt", {
       name: "DALL‑E Prompt",
-      hint: "Prompt for DALL‑E image generation. Use {prompt} as a placeholder for dynamic item details. (Disclaimer: Editing this may affect image output.)",
+      hint: "Prompt for DALL‑E image generation. Use {prompt} as a placeholder for what you entered in the promt dialog. (Disclaimer: Editing this may affect image output.)",
       scope: "world",
       config: true,
       type: String,
@@ -456,8 +477,21 @@ class ChatGPTItemGenerator {
 async generateItemJSON(prompt, explicitType = "") {
   if (!this.apiKey) return "{}";
   const typeNote = explicitType ? ` The item type is ${explicitType}.` : "";
-  // Retrieve the JSON prompt from settings:
-  const jsonPrompt = game.settings.get("chatgpt-item-generator", "chatgptJSONPrompt");
+
+  // Fixed base prompt (unchanged)
+  const fixedBasePrompt = "You are a Foundry VTT assistant creating structured JSON for a single, consistent DnD 5e item. Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. The JSON must include a non-empty 'description' field along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g., 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). ";
+  
+  // Retrieve extra (editable) instructions from settings
+  const extraPrompt = game.settings.get("chatgpt-item-generator", "chatgptJSONPrompt");
+  // Fixed JSON formatting instruction that must always be appended
+  const fixedJSONInstructions = "Output valid JSON with double-quoted property names and no extra text.";
+  
+  // Combine fixed base prompt, editable extra instructions, and the fixed JSON formatting instructions
+  const jsonPrompt = extraPrompt + " " + fixedBasePrompt + " " + fixedJSONInstructions + typeNote;
+  
+  // Log the combined prompt for testing purposes
+  console.log("Generated JSON prompt:", jsonPrompt);
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -467,10 +501,7 @@ async generateItemJSON(prompt, explicitType = "") {
     body: JSON.stringify({
       model: "gpt-4",
       messages: [
-        {
-          role: "system",
-          content: jsonPrompt + typeNote
-        },
+        { role: "system", content: jsonPrompt },
         { role: "user", content: prompt }
       ],
       max_tokens: 700
@@ -479,7 +510,6 @@ async generateItemJSON(prompt, explicitType = "") {
   let data = await response.json();
   return data.choices?.[0]?.message?.content?.trim() || "{}";
 }
-
 
   async parseItemJSON(raw) {
     console.log("Raw JSON from GPT:", raw);
@@ -505,6 +535,13 @@ async generateItemJSON(prompt, explicitType = "") {
 
   async generateItemName(prompt) {
     if (!this.apiKey) return "Unnamed";
+    // Fixed part: disallow JSON.
+    const fixedNamePrompt = "Do not output JSON and Generate a short item name in plain text";
+    // Retrieve the extra instructions from settings.
+    const extraNamePrompt = game.settings.get("chatgpt-item-generator", "chatgptNamePrompt");
+    // Combine the extra instructions with the fixed instruction.
+    const namePrompt = extraNamePrompt + " " + fixedNamePrompt;
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -514,11 +551,7 @@ async generateItemJSON(prompt, explicitType = "") {
       body: JSON.stringify({
         model: "gpt-4",
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert in fantasy RPGs. Generate a short item name in plain text. Do not include the word 'dragon' unless explicitly requested. No JSON."
-          },
+          { role: "system", content: namePrompt },
           { role: "user", content: prompt }
         ],
         max_tokens: 20
@@ -622,14 +655,12 @@ Please provide a refined, improved item name that better reflects the details an
 
   async gptFixMismatch(expectedName, foundType, itemName, rawJSON) {
     if (!this.apiKey) return rawJSON;
-    let systemMessage =
-      "You are a Foundry VTT assistant. The item name or prompt indicates it is a " +
-      expectedName +
-      ", but the JSON indicates it is a " +
-      foundType +
-      ". Fix the JSON so that the item is consistent as a " +
-      expectedName +
-      ". Output only valid JSON.";
+    // Fixed non-editable part for mismatch fixing
+    const fixedMismatchPrompt = "You are a Foundry VTT assistant. The item name or prompt indicates it is a " + expectedName + ", but the JSON indicates it is a " + foundType + ". Fix the JSON so that the item is consistent as a " + expectedName + ". ";
+    // Retrieve extra instructions from settings
+    const extraMismatchPrompt = game.settings.get("chatgpt-item-generator", "chatgptFixMismatchPrompt");
+    // Combine fixed base, extra instructions, and a fixed ending
+    const systemMessage = fixedMismatchPrompt + extraMismatchPrompt + "Output only valid JSON.";
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -688,178 +719,203 @@ Output only the descriptions, one per line, with no numbering or extra commentar
   /* --------------------------------
    * 5) Create Unique Item Document (for Roll Table Entries)
    * ------------------------------- */
-  async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
-    // Show the progress bar at the very beginning
-    this.showProgressBar();
-    
-    let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
-    // Use the override if provided; otherwise generate a name.
-    let generatedName = (forcedName && forcedName.trim().length > 0)
-      ? forcedName
-      : await this.generateItemName(combined);
-    const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
-    let imagePath = await this.generateItemImageSilent(combined);
-    this.updateProgressBar(20);
-    let rawItemJSON = await this.generateItemJSON(combined, explicitType);
-    this.updateProgressBar(40);
-    let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
-    let parsed = await this.parseItemJSON(fixedJSON);
-    if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) ) {
-      parsed.damage = this.transformWeaponDamage(parsed.damage);
-    }
-    this.updateProgressBar(60);
-    let finalDesc = parsed.description || "No description provided.";
-    // If a forced name override was provided, skip refining.
-    let refinedName = (forcedName && forcedName.trim().length > 0)
-      ? forcedName
-      : await this.refineItemName(generatedName, finalDesc);
-    let foundryItemType = "equipment";
-    if (explicitType) {
-      const explicitMapping = {
-        "Weapon": "weapon",
-        "Armor": "equipment",
-        "Equipment": "equipment",
-        "Consumable": "consumable",
-        "Tool": "tool",
-        "Loot": "loot",
-        "Spell": "spell"
-      };
-      foundryItemType = explicitMapping[explicitType] || "equipment";
-    } else {
-      if (parsed.itemType) {
-        let typeStr = parsed.itemType.toLowerCase();
-        const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
-        if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
-          foundryItemType = "weapon";
-        } else {
-          const map = {
-            "armor": "equipment",
-            "potion": "consumable",
-            "scroll": "consumable",
-            "rod": "equipment",
-            "staff": "equipment",
-            "wand": "equipment",
-            "ammunition": "consumable",
-            "gear": "equipment",
-            "loot": "loot",
-            "tool": "tool"
-          };
-          foundryItemType = map[typeStr] || "equipment";
-        }
-      } else {
-        if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
-          foundryItemType = "weapon";
-        }
-        if (generatedName.toLowerCase().includes("potion")) {
-          foundryItemType = "consumable";
-        }
-        if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
-          const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
-          if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
-            foundryItemType = "weapon";
-          }
-        }
-      }
-    }
-    // New: Handle nested type object.
-    let newItemType;
-    if (parsed.type && typeof parsed.type === "object") {
-      newItemType = parsed.type;
-    } else {
-      if (foundryItemType === "weapon") {
-        newItemType = { value: "simpleM", baseItem: "" };
-      } else {
-        newItemType = foundryItemType;
-      }
-    }
-    let newItemData = {
-      name: refinedName,
-      type: foundryItemType,
-      img: imagePath || "icons/svg/d20-highlight.svg",
-      system: {
-        description: { value: finalDesc },
-        rarity: parsed.rarity || "common",
-        weight: parsed.weight || 1,
-        price: { value: parsed.price || 100, denomination: "gp" },
-        attunement: parsed.requiresAttunement ? "required" : false,
-        armor: { value: 10 },
-        properties: [],
-        activation: parsed.activation || { type: "", cost: 0 },
-        uses: parsed.uses || {},
-        damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
-        type: newItemType  // Nested type inserted here.
-      }
-    };
-    if (foundryItemType === "weapon" && parsed.weaponProperties) {
-      let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
-      for (let wp of wpProps) {
-        newItemData.system.properties.push(wp);
-      }
-    }
-    // Magic fix: Check both "magical" and "magic".
-    const isMagic = (
-      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
-      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
-    );
-    const magList = ["rare", "very rare", "legendary", "artifact"];
-    const rarityLower = (parsed.rarity || "").toLowerCase();
-    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
-      const count = Math.floor(Math.random() * 3) + 1;
-      const magProps = await this.generateMagicalProperties(newItemData, count);
-      if (magProps) {
-        newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
-      }
-    }
-    if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
-      let armorType = parsed.armorType || "medium";
-      let acValue = parsed.ac || 14;
-      newItemData.system.armor = {
-        value: acValue,
-        type: armorType,
-        dex: (armorType === "medium") ? 2 : null
-      };
-    }
-    // Create the item and return it.
-    let createdItem = await Item.create(newItemData);
-    this.updateProgressBar(100);
-    this.hideProgressBar();
-    ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
-    return createdItem;
+async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
+  // Show the progress bar at the very beginning
+  this.showProgressBar();
+  
+  // Combine the prompt with any explicit type information
+  let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
+  
+  // Generate the item name (or use the override if provided)
+  let generatedName = (forcedName && forcedName.trim().length > 0)
+    ? forcedName
+    : await this.generateItemName(combined);
+  
+  const weaponKeywords = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+  
+  // Generate the image and update progress to 20%
+  let imagePath = await this.generateItemImageSilent(combined);
+  this.updateProgressBar(20);
+  
+  // Generate the item JSON and update progress to 40%
+  let rawItemJSON = await this.generateItemJSON(combined, explicitType);
+  this.updateProgressBar(40);
+  
+  // Fix and parse the JSON (and update damage formatting if needed)
+  let fixedJSON = await this.fixNameDescriptionMismatch(generatedName, rawItemJSON, combined);
+  let parsed = await this.parseItemJSON(fixedJSON);
+  if (parsed.damage && (explicitType === "Weapon" || weaponKeywords.some(term => generatedName.toLowerCase().includes(term)))) {
+    parsed.damage = this.transformWeaponDamage(parsed.damage);
   }
+  this.updateProgressBar(60);
+  
+  let finalDesc = parsed.description || "No description provided.";
+  
+  // Refine the item name based on the description if no override was provided
+  let refinedName = (forcedName && forcedName.trim().length > 0)
+    ? forcedName
+    : await this.refineItemName(generatedName, finalDesc);
+  // Update progress after name refinement
+  this.updateProgressBar(80);
+  
+  // Determine the Foundry item type using explicit mapping or heuristics
+  let foundryItemType = "equipment";
+  if (explicitType) {
+    const explicitMapping = {
+      "Weapon": "weapon",
+      "Armor": "equipment",
+      "Equipment": "equipment",
+      "Consumable": "consumable",
+      "Tool": "tool",
+      "Loot": "loot",
+      "Spell": "spell"
+    };
+    foundryItemType = explicitMapping[explicitType] || "equipment";
+  } else {
+    if (parsed.itemType) {
+      let typeStr = parsed.itemType.toLowerCase();
+      const weaponKeywordsAlt = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+      if (weaponKeywordsAlt.some(term => typeStr.includes(term) || typeStr.includes("weapon"))) {
+        foundryItemType = "weapon";
+      } else {
+        const map = {
+          "armor": "equipment",
+          "potion": "consumable",
+          "scroll": "consumable",
+          "rod": "equipment",
+          "staff": "equipment",
+          "wand": "equipment",
+          "ammunition": "consumable",
+          "gear": "equipment",
+          "loot": "loot",
+          "tool": "tool"
+        };
+        foundryItemType = map[typeStr] || "equipment";
+      }
+    } else {
+      if (weaponKeywords.some(term => generatedName.toLowerCase().includes(term))) {
+        foundryItemType = "weapon";
+      }
+      if (generatedName.toLowerCase().includes("potion")) {
+        foundryItemType = "consumable";
+      }
+      if (foundryItemType === "equipment" && !generatedName.toLowerCase().includes("potion")) {
+        const descWeaponKeywords = ["sword", "cutlass", "sabre", "longsword", "rapier", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "quarterstaff", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "katana"];
+        if (descWeaponKeywords.some(term => finalDesc.toLowerCase().includes(term))) {
+          foundryItemType = "weapon";
+        }
+      }
+    }
+  }
+  
+  // Handle nested type object if provided in the JSON
+  let newItemType;
+  if (parsed.type && typeof parsed.type === "object") {
+    newItemType = parsed.type;
+  } else {
+    if (foundryItemType === "weapon") {
+      newItemType = { value: "simpleM", baseItem: "" };
+    } else {
+      newItemType = foundryItemType;
+    }
+  }
+  
+  // Build the new item data
+  let newItemData = {
+    name: refinedName,
+    type: foundryItemType,
+    img: imagePath || "icons/svg/d20-highlight.svg",
+    system: {
+      description: { value: finalDesc },
+      rarity: parsed.rarity || "common",
+      weight: parsed.weight || 1,
+      price: { value: parsed.price || 100, denomination: "gp" },
+      attunement: parsed.requiresAttunement ? "required" : false,
+      armor: { value: 10 },
+      properties: [],
+      activation: parsed.activation || { type: "", cost: 0 },
+      uses: parsed.uses || {},
+      damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
+      type: newItemType  // Nested type inserted here.
+    }
+  };
+  
+  if (foundryItemType === "weapon" && parsed.weaponProperties) {
+    let wpProps = this.transformWeaponProperties(parsed.weaponProperties);
+    for (let wp of wpProps) {
+      newItemData.system.properties.push(wp);
+    }
+  }
+  
+  // Handle magical properties if applicable
+  const isMagic = (
+    (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
+    (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
+  );
+  const magList = ["rare", "very rare", "legendary", "artifact"];
+  const rarityLower = (parsed.rarity || "").toLowerCase();
+  if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
+    const count = Math.floor(Math.random() * 3) + 1;
+    const magProps = await this.generateMagicalProperties(newItemData, count);
+    if (magProps) {
+      newItemData.system.description.value += `<br><br><strong>Magical Properties:</strong><br>${magProps.replace(/\n/g, "<br>")}`;
+    }
+  }
+  
+  if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
+    let armorType = parsed.armorType || "medium";
+    let acValue = parsed.ac || 14;
+    newItemData.system.armor = {
+      value: acValue,
+      type: armorType,
+      dex: (armorType === "medium") ? 2 : null
+    };
+  }
+  
+  // Create the item and update the progress bar to 100%
+  let createdItem = await Item.create(newItemData);
+  this.updateProgressBar(100);
+  this.hideProgressBar();
+  ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
+  return createdItem;
+}
 
   /* --------------------------------
    * 6) Roll Table Generation Functions
    * ------------------------------- */
-  async generateRollTableJSON(userPrompt) {
-    if (!this.apiKey) return "{}";
-    // Updated prompt: now instructs to output strictly valid JSON
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a Foundry VTT assistant creating strictly valid JSON for a DnD 5e roll table. " +
-              "Output only a valid JSON object with double-quoted property names and no extra commentary or text before or after the JSON object. " +
-              "The JSON must include the following fields: 'name', 'formula', 'description', 'tableType', and 'entries'. " +
-              "For tables of type 'items', each entry must be an object with 'text', 'minRange', 'maxRange', 'weight', and 'documentCollection' set to 'Item'. " +
-              "For generic roll tables, include additional details from the prompt to create tailored, descriptive entries. " +
-              "Ensure that the output contains exactly 20 entries."
-          },
-          { role: "user", content: userPrompt }
-        ],
-        max_tokens: 900
-      })
-    });
-    let data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "{}";
+async generateRollTableJSON(userPrompt) {
+  if (!this.apiKey) return "{}";
+
+  // Fixed non-editable part for roll table JSON formatting
+  const fixedRollTablePrompt = "You are a Foundry VTT assistant creating strictly valid JSON for a DnD 5e roll table. Do not alter the JSON formatting: output only a valid JSON object with double-quoted property names and no extra commentary or text before or after the JSON object. The JSON must include the following fields: 'name', 'formula', 'description', 'tableType', and 'entries'. For tables of type 'items', each entry must be an object with 'text', 'minRange', 'maxRange', 'weight', and 'documentCollection' set to 'Item'. Ensure that the output contains exactly 20 entries. ";
+  
+  // By default, start with the fixed prompt.
+  let rollTableJSONPrompt = fixedRollTablePrompt;
+  
+  // If the user prompt does NOT indicate a generic table, append the extra instructions.
+  if (!userPrompt.includes("-- tableType=generic")) {
+    const extraRollTablePrompt = game.settings.get("chatgpt-item-generator", "chatgptRollTablePrompt");
+    rollTableJSONPrompt += extraRollTablePrompt;
   }
+  
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${this.apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: rollTableJSONPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 900
+    })
+  });
+  let data = await response.json();
+  return data.choices?.[0]?.message?.content?.trim() || "{}";
+}
 
   async parseTableJSON(rawJSON) {
     console.log("Raw Roll Table JSON from GPT:", rawJSON);
