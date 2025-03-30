@@ -1,5 +1,15 @@
 # Changelog
-## v1.0.7 - Enhanced Features & New Integrations
+## v1.0.7 - Prompt Customization & Progress Feedback Improvements  
+- ✅ Secured prompt settings  
+  - Essential JSON formatting and DnD details are now hard-coded, while extra instructions remain editable via settings.  
+- ✅ Separated fixed vs. editable prompts for Item JSON generation  
+  - The fixed DnD 5e item details remain unchanged, and any extra instructions from settings are now appended before the fixed JSON formatting requirement ("Output valid JSON with double-quoted property names and no extra      text.").  
+- ✅ Improved Item Name prompt  
+  - The editable item name prompt now defaults to "You are an expert in fantasy RPGs. Do not include the word 'dragon' unless explicitly requested." with a fixed instruction appended to enforce plain text output.  
+- ✅ Roll Table JSON generation update  
+  - When generating generic roll tables (identified via a marker in the prompt), the extra roll table JSON instructions from settings are ignored, ensuring generic tables use only the fixed prompt.  
+- ✅ Enhanced progress bar updates for item generation  
+  - Added progress bar updates at key steps (image generation, JSON generation, JSON parsing/fixing, name refinement, and final item creation) for more granular user feedback.
 - ✅Bugfix for Item JSON
   - Corrected issue with the script not following the item JSON setting
 ## v1.0.6 - Enhanced Features & New Integrations
