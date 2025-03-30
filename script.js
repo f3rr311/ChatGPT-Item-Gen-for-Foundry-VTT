@@ -453,37 +453,33 @@ class ChatGPTItemGenerator {
   /* --------------------------------
    * 3) Item Generation Functions
    * ------------------------------- */
-  async generateItemJSON(prompt, explicitType = "") {
-    if (!this.apiKey) return "{}";
-    const typeNote = explicitType ? ` The item type is ${explicitType}.` : "";
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a Foundry VTT assistant creating structured JSON for a single, consistent DnD 5e item." +
-              typeNote +
-              " Do not include an explicit item name field; instead, output the item description beginning with '<b>Item Name:</b> ' followed by the item name and a '<br>' tag, then the detailed lore. " +
-              "The JSON must include a non-empty 'description' field along with the fields 'rarity', 'weight', 'price', and 'requiresAttunement'. " +
-              "If it's a weapon, include 'weaponProperties', a 'damage' field with the damage dice (e.g., '1d8', '2d6') and any bonus modifiers, and also include a nested 'type' object with keys 'value' (e.g., 'simpleM', 'martialM') and 'baseItem' (e.g., 'longsword'). " +
-              "Decide if 'magical' is true or false. " +
-              "Output valid JSON with double-quoted property names and no extra text."
-          },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 700
-      })
-    });
-    let data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "{}";
-  }
+async generateItemJSON(prompt, explicitType = "") {
+  if (!this.apiKey) return "{}";
+  const typeNote = explicitType ? ` The item type is ${explicitType}.` : "";
+  // Retrieve the JSON prompt from settings:
+  const jsonPrompt = game.settings.get("chatgpt-item-generator", "chatgptJSONPrompt");
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${this.apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: jsonPrompt + typeNote
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 700
+    })
+  });
+  let data = await response.json();
+  return data.choices?.[0]?.message?.content?.trim() || "{}";
+}
+
 
   async parseItemJSON(raw) {
     console.log("Raw JSON from GPT:", raw);
