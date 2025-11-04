@@ -2,7 +2,7 @@
     "id": "chatgpt-item-generator",
     "title": "ChatGPT Item Generator",
     "description": "Generates AI-powered D&D 5e items with descriptions, effects, and images. Also can make Roll Tables from AI.",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "authors": [
         {
             "name": "Byte_Smarter",
@@ -12,7 +12,7 @@
     ],
     "compatibility": {
         "minimum": "12.331",
-        "verified": "12.331",
+        "verified": "13.350",
         "maximum": "13.350"
     },
     "relationships": {

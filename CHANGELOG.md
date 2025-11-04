@@ -1,87 +1,143 @@
 # Changelog
-## v1.0.7 - Prompt Customization & Progress Feedback Improvements  
-- ✅ Secured prompt settings  
-  - Essential JSON formatting and DnD details are now hard-coded, while extra instructions remain editable via settings.  
-- ✅ Separated fixed vs. editable prompts for Item JSON generation  
-  - The fixed DnD 5e item details remain unchanged, and any extra instructions from settings are now appended before the fixed JSON formatting requirement ("Output valid JSON with double-quoted property names and no extra      text.").  
-- ✅ Improved Item Name prompt  
-  - The editable item name prompt now defaults to "You are an expert in fantasy RPGs. Do not include the word 'dragon' unless explicitly requested." with a fixed instruction appended to enforce plain text output.  
-- ✅ Roll Table JSON generation update  
-  - When generating generic roll tables (identified via a marker in the prompt), the extra roll table JSON instructions from settings are ignored, ensuring generic tables use only the fixed prompt.  
-- ✅ Enhanced progress bar updates for item generation  
-  - Added progress bar updates at key steps (image generation, JSON generation, JSON parsing/fixing, name refinement, and final item creation) for more granular user feedback.
-- ✅Bugfix for Item JSON
-  - Corrected issue with the script not following the item JSON setting
-## v1.0.6 - Enhanced Features & New Integrations
-- ✅**Stable Diffusion Integration**
-  - Added support for using Stable Diffusion as an alternative to DALL‑E for image generation.
-  - Introduced new settings:
-    - **Stable Diffusion Enabled** – Toggle to choose between Stable Diffusion and DALL‑E.
-    - **Stable Diffusion API Key** and **Stable Diffusion API Endpoint** – Configurable access details.
-    - **Stable Diffusion Prompt Settings** – New settings for Main Prompt (`sdMainPrompt`), Negative Prompt (`sdNegativePrompt`), Steps (`sdSteps`), CFG Scale (`sdCfgScale`), and Sampler Name (`sdSamplerName`).
-  - Updated image generation flow to poll for Stable Diffusion task completion before falling back to DALL‑E.
-- ✅**ChatGPT Prompt Customization**
-  - Made ChatGPT prompts configurable through settings:
-    - **ChatGPT Item Name Prompt** – Custom prompt for generating concise item names.
-    - **ChatGPT Item JSON Prompt** – Custom prompt for generating structured JSON.
-  - Improved logic to force inclusion or removal of keywords based on the prompt.
-- ✅**Media Optimizer Support**
-  - Updated image saving functions to ensure compatibility with the Media Optimizer module, preserving file naming and conversion behavior.
-## v1.0.5 - Latest Improvements & Fixes
-  ✅ **API Key Change--
-  When the OpenAI API key is changed it now refreshes the session to apply the API token to the script. 
-## v1.0.4 - Latest Improvements & Fixes
-- ✅ **Nested Type Handling:--
-  The code now checks if the parsed JSON includes a nested type object. If present, that object is used for the item's type information; otherwise, for weapons it defaults to { value: "simpleM", baseItem: "" }.
-- ✅ **Magic Fix:**
-  The logic now checks for both "magical" and "magic" properties (using a robust string comparison) so that items are properly marked as magical if the JSON indicates so.
-- ✅ **DALL‑E 2 Fallback:
-  The generateItemImageSilent function now falls back to DALL‑E 2 if DALL‑E 3 is not subscribed to(Not very good at images).
 
+## v1.0.8 — Foundry V13 Ready · JSON Hardening · UX Polish
+- ✅ **Full Foundry VTT v13 Compatibility**
+  - Updated for **Core v13+** (`game.release.generation >= 13`)
+  - Correct usage of:
+    - `document` instead of `1` for `TableResult.type`
+    - `collectionName` instead of `documentCollection`
+  - Eliminated all v13 deprecation warnings
 
-## v1.0.3 - Latest Improvements & Fixes
-- ✅ **Forced Name Override for Roll Tables:**  
-  Roll table entry text is now used as the final item name when generating items from roll tables.
-- ✅ **Enhanced Name Consistency:**  
-  Updated the consistency fix to extract the item name from the description if it starts with `<b>Item Name:</b> ...<br>`, ensuring the final item name matches the description.
-- ✅ **Refined JSON Output for Roll Tables:**  
-  Strengthened the system prompt for roll table generation to output strictly valid JSON with no extraneous commentary.
-- ✅ **Image Generation Prompt Update:**  
-  Updated the DALL·E prompt to explicitly instruct the model to generate images without any text.
-- ✅ **Expanded Weapon Keywords:**  
-  The weapon keywords array now includes terms like "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", and "maul".
-- ✅ **Unified Dialog Interface with Dropdowns:**  
-  Added a custom dialog with dropdown options to select between generating a single item or a roll table.
-- ✅ **Footer Button Integration:**  
-  The "Generate AI (Item or RollTable)" button is now added to the footer of the Items directory via the `renderItemDirectory` hook.
-- ✅ **Local Image Storage Adjustments:**  
-  Updated folder creation and checks so that images are saved in the designated folder with proper error handling.
-- ✅ **Weapon Type and Base Weapon Mapping:**  
-  Tweaked the damage mapping to reformat ChatGPT's raw damage data into Foundry’s expected structure, and added explicit weapon type mapping and base weapon classification to better support weapon items.
+- ✅ **Improved JSON Parsing Resilience**
+  - Triple-layer fallback in `parseItemJSON()` & `parseTableJSON()`:
+    1. Native `JSON.parse`
+    2. GPT auto-repair via `fixInvalidJSON()`
+    3. Regex extraction via `extractValidJSON()`
+  - Dramatically reduces failures in item/table creation
 
+- ✅ **Fixed Name-in-Description Extraction**
+  - Robust regex handling:
+    - `<b>Item Name:</b>`
+    - Extra spacing
+    - Missing `<br>`
+    - Other HTML variants
 
-## v1.0.2 - Previous Enhancements
-- ✅ **Advanced Item Type Mapping:**  
-  Improved mapping for D&D 5e item types (e.g., weapon, armor, consumable) based on generated descriptions.
-- ✅ **Damage and Activation Data:**  
-  Added support for damage calculations and activation details in generated weapon items.
-- ✅ **API Key Integration:**  
-  Moved API keys to Foundry’s module settings for enhanced security and easier configuration.
-- ✅ **JSON Sanitization Improvements:**  
-  Implemented multiple attempts to fix and sanitize JSON output from GPT to ensure valid JSON is parsed.
+- ✅ **Accurate Progress Bar Feedback**
+  - Smooth, reliable progress at:
+    - 20% — Image
+    - 40% — JSON
+    - 60% — Parse/Fix
+    - 80% — Name Refine
+    - 100% — Create
 
-## v1.0.1 - Initial Improvements & Fixes
-- ✅ **Local Image Saving:**  
-  Enabled saving of AI-generated images using Base64 encoding to a dedicated folder.
-- ✅ **Item Description Formatting:**  
-  Prevented duplication of the item name in descriptions and ensured proper formatting.
-- ✅ **Sidebar Button Addition:**  
-  Added a UI button for generating items in the Items directory via Foundry’s sidebar hooks.
+- ✅ **Smarter Weapon Detection**
+  - Expanded keyword list:
+    `katana, scimitar, rapier, pike, quarterstaff, cutlass, sabre`
+  - Detects weapons via name **or** description
 
-## v1.0.0 - Initial Release
-- 🎉 **First Version:**  
-  Launched the ChatGPT Item Generator module for Foundry VTT.
-- ✅ **AI-Generated Items:**  
-  Enabled AI-generated D&D 5e items with detailed lore, stats, and effects.
-- ✅ **Basic API Integration:**  
-  Supported OpenAI (ChatGPT and DALL·E) API key integration via module settings.
+- ✅ **Armor & Consumable Fixes**
+  - Correct `system.type.value` for consumables (v4+)
+  - Proper handling of:
+    - `dexCap`
+    - `strength`
+    - `ac`
+
+- ✅ **Stable Diffusion Polling Fix**
+  - Prevents hangs on malformed `task_id`
+  - Hard cap of 60 attempts (3 minutes)
+  - Clear timeout warnings
+
+- ✅ **UI Improvements: Responsive Dialog**
+  - Auto-height resize
+  - No clipping on smaller screens or mobile
+
+- ✅ **Roll Table “Generic Mode” Fix**
+  - `-- tableType=generic` now fully ignores extra item-name prompts
+
+- ✅ **Refined Default Prompts**
+  - **Item Name Prompt:**
+    > “You are an expert in fantasy RPGs. Do not include the word 'dragon' unless explicitly requested.”
+  - **Roll Table Prompt:**
+    > “You are an expert in fantasy RPGs. Generate distinctive, evocative item names for the roll table.”
+
+- ✅ **Code Quality Improvements**
+  - Clean section headers
+  - Improved comments
+  - Removed dead code & debug spam
+
+---
+
+## v1.0.7 — Prompt Customization & Progress Feedback Improvements
+- ✅ **Secured prompt settings**
+  - Essential JSON formatting & DnD details remain fixed
+  - Extra instructions remain user-editable
+- ✅ **Separated fixed vs editable prompts for Item JSON**
+  - Custom instructions append *before* fixed JSON requirements
+- ✅ **Improved Item Name prompt**
+  - Default: “You are an expert in fantasy RPGs. Do not include the word 'dragon' unless explicitly requested.”
+- ✅ **Roll Table JSON generation updates**
+  - Generic roll tables ignore user-added JSON instructions
+- ✅ **Enhanced progress bar feedback**
+  - More granular updates for major pipeline steps
+- ✅ **Bugfix for Item JSON**
+  - Ensures script follows JSON prompt settings
+
+---
+
+## v1.0.6 — Enhanced Features & New Integrations
+- ✅ **Stable Diffusion Integration**
+  - Optional alternative to DALL-E
+  - New SD configuration settings for prompts, steps, sampler, etc.
+  - Polling for SD completion before fallback to DALL-E
+- ✅ **ChatGPT Prompt Customization**
+  - Customizable item-name & JSON-generation prompts
+- ✅ **Media Optimizer Support**
+  - Ensures file-saving compatibility for images
+
+---
+
+## v1.0.5 — Improvements & Fixes
+- ✅ **API Key Refresh**
+  - Changing the API key now refreshes the session immediately
+
+---
+
+## v1.0.4 — Improvements & Fixes
+- ✅ **Nested Type Handling**
+- ✅ **Magic Flag Fix**
+- ✅ **DALL·E 2 Fallback**
+
+---
+
+## v1.0.3 — Improvements & Fixes
+- ✅ Forced name override for roll tables  
+- ✅ Better name/description synchronization  
+- ✅ Hard JSON enforcement for roll tables  
+- ✅ Improved image generation prompts  
+- ✅ Expanded weapon keyword mapping  
+- ✅ Unified dialog UI w/ dropdowns  
+- ✅ Footer button integration  
+- ✅ Better local image handling  
+- ✅ Improved damage & weapon mapping  
+
+---
+
+## v1.0.2 — Previous Enhancements
+- ✅ Advanced item type mapping  
+- ✅ Damage & activation support  
+- ✅ API key settings  
+- ✅ JSON sanitization  
+
+---
+
+## v1.0.1 — Initial Improvements & Fixes
+- ✅ Local image saving  
+- ✅ Description formatting fix  
+- ✅ Sidebar button  
+
+---
+
+## v1.0.0 — Initial Release
+- 🎉 First release of the ChatGPT Item Generator  
+- ✅ AI-generated D&D 5e items  
+- ✅ API integration  

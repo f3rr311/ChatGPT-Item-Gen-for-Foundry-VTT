@@ -816,7 +816,7 @@ async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
     if (foundryItemType === "weapon") {
       newItemType = { value: "simpleM", baseItem: "" };
     } else {
-      newItemType = foundryItemType;
+      newItemType = null; // Do not set for non-weapons
     }
   }
   
@@ -830,13 +830,13 @@ async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
       rarity: parsed.rarity || "common",
       weight: parsed.weight || 1,
       price: { value: parsed.price || 100, denomination: "gp" },
-      attunement: parsed.requiresAttunement ? "required" : false,
+      attunement: parsed.requiresAttunement ? 1 : 0,
       armor: { value: 10 },
       properties: [],
       activation: parsed.activation || { type: "", cost: 0 },
       uses: parsed.uses || {},
       damage: foundryItemType === "weapon" ? (parsed.damage ? parsed.damage : { parts: [] }) : (parsed.damage || null),
-      type: newItemType  // Nested type inserted here.
+      type: newItemType ? newItemType : undefined  // Nested type inserted here.
     }
   };
   
@@ -846,6 +846,21 @@ async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
       newItemData.system.properties.push(wp);
     }
   }
+  if (foundryItemType === "weapon") {
+  if (this.isDnd5eV4) {
+    let category = "simple";
+    let wType = "melee";
+    if (newItemType.value) {
+      if (newItemType.value.startsWith("martial")) category = "martial";
+      if (newItemType.value.endsWith("R")) wType = "ranged";
+    }
+    newItemData.system.category = { value: category };
+    newItemData.system.type = { value: wType };
+    newItemData.system.baseItem = newItemType.baseItem || "";
+  } else {
+    newItemData.system.type = newItemType;
+  }
+}
   
   // Handle magical properties if applicable
   const isMagic = (
@@ -862,15 +877,41 @@ async createUniqueItemDoc(itemPrompt, forcedName = null, explicitType = "") {
     }
   }
   
-  if (foundryItemType === "equipment" && parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
-    let armorType = parsed.armorType || "medium";
-    let acValue = parsed.ac || 14;
-    newItemData.system.armor = {
-      value: acValue,
-      type: armorType,
-      dex: (armorType === "medium") ? 2 : null
-    };
+  if (parsed.itemType && (parsed.itemType.toLowerCase() === "armor" || parsed.itemType.toLowerCase() === "shield")) {
+  let armorType = parsed.armorType || (parsed.itemType.toLowerCase() === "shield" ? "shield" : "medium");
+  let acValue = parsed.ac || (armorType === "shield" ? 2 : 14);
+  if (this.isDnd5eV4) {
+    newItemData.type = "armor";
+    let dexCap;
+    if (armorType === "light" || armorType === "shield") dexCap = null;
+    else if (armorType === "medium") dexCap = 2;
+    else dexCap = 0;
+    newItemData.system.ac = { base: acValue, dexCap: dexCap, formula: "", flat: false };
+    newItemData.system.type = { value: armorType };
+    newItemData.system.strength = (armorType === "heavy") ? 13 : ((armorType === "medium") ? 0 : 0); // Simplified, adjust if needed
+  } else {
+    foundryItemType = "equipment"; // Override if needed
+    newItemData.type = "equipment";
+    newItemData.system.equipmentType = "armor";
+    let dex;
+    if (armorType === "light" || armorType === "shield") dex = null;
+    else if (armorType === "medium") dex = 2;
+    else dex = 0;
+    newItemData.system.armor = { type: armorType, value: acValue, dex: dex };
   }
+} else {
+  // For non-armor
+  newItemData.type = foundryItemType;
+}
+
+if (foundryItemType === "consumable" && parsed.itemType) {
+  let consType = parsed.itemType.toLowerCase();
+  if (this.isDnd5eV4) {
+    newItemData.system.type = { value: consType };
+  } else {
+    newItemData.system.consumableType = consType;
+  }
+}
   
   // Create the item and update the progress bar to 100%
   let createdItem = await Item.create(newItemData);
@@ -1058,48 +1099,52 @@ async generateRollTableJSON(userPrompt) {
       replacement: true
     });
     let results = [];
-    let tableType = (parsedTable.tableType || "generic").toLowerCase();
-    ui.notifications.info(`Building table with ${parsedTable.entries?.length || 0} entries, tableType = ${tableType}.`);
-    if (tableType === "items") {
-      for (let entry of (parsedTable.entries || [])) {
-        let textVal = entry.text || "Mysterious Item";
-        let createdItem = await this.createUniqueItemDoc(textVal, textVal, explicitType);
-        if (createdItem && createdItem.name) {
-          results.push({
-            type: 1,
-            text: createdItem.name,
-            range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-            weight: entry.weight ?? 1,
-            img: "icons/svg/d20-highlight.svg",
-            documentCollection: "Item",
-            documentId: createdItem.id,
-            drawn: false
-          });
-        } else {
-          results.push({
-            type: 0,
-            text: `Failed item: ${textVal}`,
-            range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-            weight: entry.weight ?? 1,
-            img: "icons/svg/d20-highlight.svg",
-            documentCollection: "Item",
-            drawn: false
-          });
-        }
-      }
+let tableType = (parsedTable.tableType || "generic").toLowerCase();
+ui.notifications.info(`Building table with ${parsedTable.entries?.length || 0} entries, tableType = ${tableType}.`);
+const resultTypeDocument = this.isV13Core ? "document" : 1;
+const resultTypeText = this.isV13Core ? "text" : 0;
+const collectionKey = this.isV13Core ? "collectionName" : "documentCollection";
+if (tableType === "items") {
+  for (let entry of (parsedTable.entries || [])) {
+    let textVal = entry.text || "Mysterious Item";
+    let createdItem = await this.createUniqueItemDoc(textVal, textVal, explicitType);
+    if (createdItem && createdItem.name) {
+      let result = {
+        type: resultTypeDocument,
+        text: createdItem.name,
+        range: [entry.minRange ?? 1, entry.maxRange ?? 1],
+        weight: entry.weight ?? 1,
+        img: "icons/svg/d20-highlight.svg",
+        documentId: createdItem.id,
+        drawn: false
+      };
+      result[collectionKey] = "Item";
+      results.push(result);
     } else {
-      for (let entry of (parsedTable.entries || [])) {
-        results.push({
-          type: 0,
-          text: entry.text || "No text",
-          range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-          weight: entry.weight ?? 1,
-          img: "icons/svg/d20-highlight.svg",
-          documentCollection: "Item",
-          drawn: false
-        });
-      }
+      let result = {
+        type: resultTypeText,
+        text: `Failed item: ${textVal}`,
+        range: [entry.minRange ?? 1, entry.maxRange ?? 1],
+        weight: entry.weight ?? 1,
+        img: "icons/svg/d20-highlight.svg",
+        drawn: false
+      };
+      results.push(result);
     }
+  }
+} else {
+  for (let entry of (parsedTable.entries || [])) {
+    let result = {
+      type: resultTypeText,
+      text: entry.text || "No text",
+      range: [entry.minRange ?? 1, entry.maxRange ?? 1],
+      weight: entry.weight ?? 1,
+      img: "icons/svg/d20-highlight.svg",
+      drawn: false
+    };
+    results.push(result);
+  }
+}
     if (!results.length) {
       ui.notifications.warn("GPT returned no entries. Table is empty.");
     }
@@ -1117,14 +1162,21 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   game.chatGPTItemGenerator = new ChatGPTItemGenerator();
+  game.chatGPTItemGenerator.isDnd5eV4 = game.system.id === "dnd5e" && foundry.utils.isNewerVersion(game.system.version, "4.0.0");
+  game.chatGPTItemGenerator.isV13Core = game.release.generation >= 13;
   console.log("ChatGPT Item Generator Loaded");
 });
 
-// Add the Generate button to the footer of the Items directory (only show to GMs)
 Hooks.on("renderItemDirectory", (app, html, data) => {
-  if (game.user.isGM) {
-    let button = $(`<button><i class='fas fa-magic'></i> Generate AI (Item or RollTable)</button>`);
-    button.click(() => game.chatGPTItemGenerator.createFoundryAIObject());
-    html.find(".directory-footer").first().append(button);
-  }
+    if (game.user.isGM) {
+        if (game.release.generation < 13) {
+            const button = $("<button><i class='fas fa-magic'></i> Generate AI (Item or RollTable)</button>");
+            html.find(".directory-footer").append(button);
+            button.click(() => game.chatGPTItemGenerator.createFoundryAIObject());
+        } else {
+            const buttonHTML = `<button><i class='fas fa-magic'></i> Generate AI (Item or RollTable)</button>`;
+            html.querySelector(".directory-footer").insertAdjacentHTML('beforeend', buttonHTML);
+            html.querySelector(".directory-footer button:last-child").addEventListener("click", () => game.chatGPTItemGenerator.createFoundryAIObject());
+        }
+    }
 });
