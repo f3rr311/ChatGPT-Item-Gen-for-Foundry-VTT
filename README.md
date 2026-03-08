@@ -1,5 +1,8 @@
 <div align="center">
 
+<img width="1974" height="1294" alt="image" src="https://github.com/user-attachments/assets/6ff2855d-b7da-44da-bc53-287909156f12" />
+
+
 # ChatGPT Item Generator for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
@@ -214,3 +217,4 @@ For issues or feature requests, please visit the [GitHub Issues](https://github.
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 </div>
+
