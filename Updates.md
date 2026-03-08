@@ -1,5 +1,52 @@
 # Update Logs
 
+## v2.1.0 — Prompt Templates, Generation History, Token Tracking & Smarter Consumables
+
+### 🚀 New Features
+
+* **Prompt Templates:**
+  * 10 built-in presets: Uncommon Weapon, Rare Armor, Legendary Wondrous Item, Healing Potion, 3rd-Level Spell, Cursed Artifact, Magical Staff, Character Feat, Random Loot Table, Wild Magic Table.
+  * Selecting a template auto-fills the prompt textarea, sets the item type dropdown, and switches between Item/Roll Table mode.
+* **Generation History:**
+  * Session log tracks every generated item and roll table with name, type, rarity, and timestamp.
+  * Accessible via the "History" button on the generator dialog.
+  * Back button returns to the generator without losing context.
+  * Stores up to 50 entries per session.
+* **Token Cost Tracker:**
+  * Live per-item token count displayed in the progress bar during generation (tokens, API calls, images).
+  * Session totals shown in the History dialog footer.
+  * Tracks both chat completion tokens and image generations.
+* **Rarity-Based Magical Bonus Fallback:**
+  * Weapons and armor automatically receive +1 (uncommon), +2 (rare), or +3 (very rare/legendary) magical bonus when the AI omits it.
+  * Checks GPT output, description regex, and rarity as a final safety net.
+* **Consumable Activities:**
+  * Healing potions always get a **Heal activity** with correct dice formula. If the AI omits the dice, PHB-scaled defaults are used (Common: 2d4+2 through Very Rare: 10d4+20).
+  * Non-healing consumables (poisons, oils, buff potions) get a **Utility "Use" activity** so they are always usable in Foundry.
+* **Consumable Effects on Use:**
+  * Buff potions, poisons, and elixirs now generate Active Effects with `transfer: false` — effects apply when the item is used, not passively.
+  * Effects are linked to the consumable's activity and include proper duration from the AI's `effectDuration` field.
+  * GPT prompt for consumables now explicitly requests `mechanicalEffects` and `effectDuration` for buff/debuff items.
+* **Roll Table Safety Net:**
+  * High-confidence type overrides (spell, feat, weapon detection) now run on roll table entries too — previously skipped when an explicit type was passed.
+  * Extracted into standalone `applyHighConfidenceOverrides()` function.
+* **Image Failure Notification:**
+  * Clear `ui.notifications.warn()` toast when image generation fails instead of silent fallback to default icon.
+* **DALL-E Deprecation Warning:**
+  * Permanent notification on world load if using `dall-e-2` or `dall-e-3` image models (deprecated May 12, 2026).
+
+### ✨ Improvements
+
+* **Per-Item Progress Bar:** Progress bar now shows the current item's token cost, not a running session total. Session total displayed separately below.
+* **Consumable GPT Prompt:** Expanded to request `mechanicalEffects` for buff potions, poisons, and stat-boosting consumables, plus `effectDuration` for timed effects.
+* **Armor Magical Bonus Check:** Fixed `mgc` property check to use `newItemData.system.magicalBonus` instead of only checking `parsed.magicalBonus`.
+
+### 🛠 Fixes
+
+* **Armor `mgc` Property:** Rarity fallback now correctly syncs `system.armor.magicalBonus` with `system.magicalBonus` and sets the `mgc` property flag.
+* **Roll Table Type Override:** Phase A safety net no longer skipped for items with explicit types — prevents misclassified roll table entries.
+
+---
+
 ## v2.0.0 — Complete Rewrite: Modular Architecture & dnd5e v4/v5 Native Support
 
 ### 🚀 New Features

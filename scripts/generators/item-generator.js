@@ -36,6 +36,17 @@ const VALID_WEAPON_CODES = ["simpleM", "martialM", "simpleR", "martialR"];
 const WEIGHTLESS_TYPES = ["spell", "feat", "background"];
 const NO_MAGIC_PROPS_TYPES = ["spell", "feat", "background"];
 
+/**
+ * Infer magical bonus from rarity when GPT and description scanning both fail.
+ * D&D 5e convention: uncommon=+1, rare=+2, very rare=+3, legendary/artifact=+3.
+ * Returns 0 if no bonus is warranted (common or unknown rarity).
+ */
+function inferMagicalBonusFromRarity(rarity) {
+  const r = (rarity || "").toLowerCase();
+  const RARITY_BONUS = { "uncommon": 1, "rare": 2, "very rare": 3, "veryrare": 3, "legendary": 3, "artifact": 3 };
+  return RARITY_BONUS[r] || 0;
+}
+
 // ---------- JSON Parsing ----------
 
 export async function parseItemJSON(raw, config) {
@@ -103,6 +114,56 @@ export function fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt, ex
   return { json: JSON.stringify(parsed), name: itemName };
 }
 
+// ---------- Phase A: High-Confidence Type Overrides ----------
+
+/**
+ * High-confidence type overrides based on definitive structural fields and keywords.
+ * Safe to run regardless of whether explicitType was provided — these overrides
+ * catch hard evidence of misclassification (e.g. spell with level+school, weapon
+ * name containing "sword").
+ *
+ * @param {string} foundryItemType — current resolved item type
+ * @param {string} generatedName — the item name
+ * @param {string} finalDesc — the item description
+ * @param {object} parsed — the parsed GPT JSON
+ * @param {object} descBonuses — results from parseDescriptionBonuses()
+ * @returns {string} — the (potentially overridden) foundryItemType
+ */
+function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc, parsed, descBonuses) {
+  const nameLC = generatedName.toLowerCase();
+  const descLC = finalDesc.toLowerCase();
+  const combinedLC = nameLC + " " + descLC;
+  const descWeaponKeywords = ["sword", "cutlass", "sabre", "blade", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "katana", "claymore", "naginata", "glaive", "rapier", "longsword", "shortsword", "greatsword"];
+
+  // Spell: structured fields are definitive
+  if (foundryItemType !== "spell" && parsed.level !== undefined && parsed.school) {
+    console.log(`Type override: spell (detected level + school fields, was "${foundryItemType}")`);
+    foundryItemType = "spell";
+  }
+
+  // Feat: structured fields or keyword (but only override non-weapon/non-spell)
+  if (!["weapon", "spell"].includes(foundryItemType) && (parsed.featType || combinedLC.includes("feat"))) {
+    console.log(`Type override: feat (detected featType field or keyword, was "${foundryItemType}")`);
+    foundryItemType = "feat";
+  }
+
+  // Weapon: name keywords — always override non-weapon types
+  if (foundryItemType !== "weapon" && WEAPON_KEYWORDS.some(term => hasWord(nameLC, term))) {
+    console.log(`Type override: weapon (name keyword match, was "${foundryItemType}")`);
+    foundryItemType = "weapon";
+  }
+
+  // Weapon: description keywords — override if not already weapon/spell/feat
+  if (!["weapon", "spell", "feat"].includes(foundryItemType)) {
+    if (descBonuses.weaponHint || descWeaponKeywords.some(term => hasWord(descLC, term))) {
+      console.log(`Type override: weapon (description keyword match, was "${foundryItemType}")`);
+      foundryItemType = "weapon";
+    }
+  }
+
+  return foundryItemType;
+}
+
 // ---------- Core Item Document Creation ----------
 
 export async function createUniqueItemDoc(itemPrompt, config, forcedName = null, explicitType = "") {
@@ -117,6 +178,9 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
 
   // Generate the image and update progress to 20%
   let imagePath = await generateItemImage(combined, config);
+  if (!imagePath) {
+    ui.notifications.warn("Image generation failed — using default icon.");
+  }
   updateProgressBar(20);
 
   // Generate the item JSON and update progress to 40%
@@ -160,7 +224,7 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
 
   let foundryItemType = "equipment";
   if (explicitType) {
-    // v4+ has dedicated item types; v3 falls back for types that don't exist
+    // Stage 1: v4+ has dedicated item types; v3 falls back for types that don't exist
     const explicitMapping = config.isDnd5eV4
       ? { "Weapon": "weapon", "Armor": "equipment", "Equipment": "equipment", "Consumable": "consumable", "Tool": "tool", "Loot": "loot", "Spell": "spell", "Feat": "feat", "Container": "container", "Background": "background" }
       : { "Weapon": "weapon", "Armor": "equipment", "Equipment": "equipment", "Consumable": "consumable", "Tool": "tool", "Loot": "loot", "Spell": "spell", "Feat": "feat", "Container": "loot", "Background": "loot" };
@@ -178,68 +242,42 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
         foundryItemType = map[typeStr] || "equipment";
       }
     }
+  }
 
-    // --- Stage 3: Keyword/field safety-net ---
-    // Phase A: High-confidence overrides — always run regardless of current type.
-    // These catch GPT misclassifications like a longsword being tagged "consumable".
-    {
-      const nameLC = generatedName.toLowerCase();
-      const descLC = finalDesc.toLowerCase();
-      const combinedLC = nameLC + " " + descLC;
-      const descWeaponKeywords = ["sword", "cutlass", "sabre", "blade", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "katana", "claymore", "naginata", "glaive", "rapier", "longsword", "shortsword", "greatsword"];
+  // --- Phase A: High-confidence overrides — ALWAYS run (even with explicitType). ---
+  // Catches definitive misclassifications like a longsword tagged "consumable" in a
+  // roll table, or a spell with level+school fields forced into "equipment".
+  foundryItemType = applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc, parsed, descBonuses);
 
-      // Spell: structured fields are definitive
-      if (foundryItemType !== "spell" && parsed.level !== undefined && parsed.school) {
-        console.log(`Type override: spell (detected level + school fields, was "${foundryItemType}")`);
-        foundryItemType = "spell";
+  // --- Phase B: Fallback overrides — only run in auto-detect mode when still "equipment". ---
+  // Lower-confidence checks that should respect explicit user/GPT type choices.
+  if (!explicitType) {
+    const combinedLC = generatedName.toLowerCase() + " " + finalDesc.toLowerCase();
+
+    if (foundryItemType === "equipment") {
+      const consumableKeywords = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
+      if (consumableKeywords.some(term => combinedLC.includes(term))) {
+        foundryItemType = "consumable";
+        console.log("Type override: consumable (keyword match)");
       }
+    }
 
-      // Feat: structured fields or keyword (but only override non-weapon/non-spell)
-      if (!["weapon", "spell"].includes(foundryItemType) && (parsed.featType || combinedLC.includes("feat"))) {
-        console.log(`Type override: feat (detected featType field or keyword, was "${foundryItemType}")`);
-        foundryItemType = "feat";
+    if (foundryItemType === "equipment") {
+      const toolKeywords = ["dice set", "dice game", "gaming set", "playing card", "thieves' tools", "thieves tools", "lockpick",
+        "alchemist's supplies", "brewer's supplies", "calligrapher's supplies", "carpenter's tools", "cartographer's tools",
+        "cobbler's tools", "cook's utensils", "glassblower's tools", "jeweler's tools", "leatherworker's tools",
+        "mason's tools", "painter's supplies", "potter's tools", "smith's tools", "tinker's tools", "weaver's tools",
+        "woodcarver's tools", "disguise kit", "forgery kit", "herbalism kit", "navigator's tools", "poisoner's kit",
+        "lute", "drum", "flute", "lyre", "bagpipe", "dulcimer", "shawm", "viol", "pan pipes"];
+      if (toolKeywords.some(term => combinedLC.includes(term))) {
+        foundryItemType = "tool";
       }
+    }
 
-      // Weapon: name keywords — always override non-weapon types
-      if (foundryItemType !== "weapon" && WEAPON_KEYWORDS.some(term => hasWord(nameLC, term))) {
-        console.log(`Type override: weapon (name keyword match, was "${foundryItemType}")`);
-        foundryItemType = "weapon";
-      }
-
-      // Weapon: description keywords — override if not already weapon/spell/feat
-      if (!["weapon", "spell", "feat"].includes(foundryItemType)) {
-        if (descBonuses.weaponHint || descWeaponKeywords.some(term => hasWord(descLC, term))) {
-          console.log(`Type override: weapon (description keyword match, was "${foundryItemType}")`);
-          foundryItemType = "weapon";
-        }
-      }
-
-      // Phase B: Fallback overrides — only run when still "equipment" (generic default).
-      if (foundryItemType === "equipment") {
-        const consumableKeywords = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
-        if (consumableKeywords.some(term => combinedLC.includes(term))) {
-          foundryItemType = "consumable";
-          console.log("Type override: consumable (keyword match)");
-        }
-      }
-
-      if (foundryItemType === "equipment") {
-        const toolKeywords = ["dice set", "dice game", "gaming set", "playing card", "thieves' tools", "thieves tools", "lockpick",
-          "alchemist's supplies", "brewer's supplies", "calligrapher's supplies", "carpenter's tools", "cartographer's tools",
-          "cobbler's tools", "cook's utensils", "glassblower's tools", "jeweler's tools", "leatherworker's tools",
-          "mason's tools", "painter's supplies", "potter's tools", "smith's tools", "tinker's tools", "weaver's tools",
-          "woodcarver's tools", "disguise kit", "forgery kit", "herbalism kit", "navigator's tools", "poisoner's kit",
-          "lute", "drum", "flute", "lyre", "bagpipe", "dulcimer", "shawm", "viol", "pan pipes"];
-        if (toolKeywords.some(term => combinedLC.includes(term))) {
-          foundryItemType = "tool";
-        }
-      }
-
-      if (foundryItemType === "equipment") {
-        const lootKeywords = ["gold coin", "silver coin", "copper coin", "platinum coin", "gemstone", "raw gem", "uncut gem"];
-        if (lootKeywords.some(term => combinedLC.includes(term))) {
-          foundryItemType = "loot";
-        }
+    if (foundryItemType === "equipment") {
+      const lootKeywords = ["gold coin", "silver coin", "copper coin", "platinum coin", "gemstone", "raw gem", "uncut gem"];
+      if (lootKeywords.some(term => combinedLC.includes(term))) {
+        foundryItemType = "loot";
       }
     }
   }
@@ -438,6 +476,15 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       } else if (descBonuses.magicalBonus !== null) {
         newItemData.system.magicalBonus = descBonuses.magicalBonus;
         console.log("Magical bonus set from description:", descBonuses.magicalBonus);
+      }
+
+      // Rarity fallback: infer from rarity when both GPT JSON and description scan missed it
+      if (!newItemData.system.magicalBonus || newItemData.system.magicalBonus <= 0) {
+        const rarityBonus = inferMagicalBonusFromRarity(parsed.rarity);
+        if (rarityBonus > 0) {
+          newItemData.system.magicalBonus = rarityBonus;
+          console.log("Weapon magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
+        }
       }
 
       // Auto-add "mgc" property when item has a magical bonus
@@ -773,12 +820,26 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
         newItemData.system.magicalBonus = Number(parsed.magicalBonus);
       }
 
+      // Rarity fallback: infer from rarity when GPT didn't provide magicalBonus
+      if (!newItemData.system.magicalBonus || newItemData.system.magicalBonus <= 0) {
+        const rarityBonus = inferMagicalBonusFromRarity(parsed.rarity);
+        if (rarityBonus > 0) {
+          newItemData.system.magicalBonus = rarityBonus;
+          // Sync the armor object's magicalBonus to keep both in alignment
+          if (newItemData.system.armor) {
+            newItemData.system.armor.magicalBonus = rarityBonus;
+          }
+          console.log("Armor magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
+        }
+      }
+
       // Equipment properties
       let armorProps = newItemData.system.properties || [];
       if (stealthDisadvantage) {
         if (!armorProps.includes("stealthDisadvantage")) armorProps.push("stealthDisadvantage");
       }
-      if (parsed.magicalBonus && Number(parsed.magicalBonus) > 0) {
+      if ((newItemData.system.magicalBonus && newItemData.system.magicalBonus > 0) ||
+          (parsed.magicalBonus && Number(parsed.magicalBonus) > 0)) {
         if (!armorProps.includes("mgc")) armorProps.push("mgc");
       }
       newItemData.system.properties = armorProps;
@@ -837,6 +898,15 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       if (config.isDnd5eV4) {
         newItemData.system.magicalBonus = descBonuses.magicalBonus;
         console.log("Equipment magical bonus set from description:", descBonuses.magicalBonus);
+      }
+    }
+
+    // Rarity fallback for equipment
+    if (config.isDnd5eV4 && (!newItemData.system.magicalBonus || newItemData.system.magicalBonus <= 0)) {
+      const rarityBonus = inferMagicalBonusFromRarity(parsed.rarity);
+      if (rarityBonus > 0) {
+        newItemData.system.magicalBonus = rarityBonus;
+        console.log("Equipment magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
       }
     }
 
@@ -1089,28 +1159,61 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       console.log("Spell activities created:", Object.keys(newItemData.system.activities).length);
     }
 
-    // CONSUMABLES: heal activity for healing potions/foods
+    // CONSUMABLES: activities for potions, foods, and other consumables
     else if (foundryItemType === "consumable") {
       const consSubtype = newItemData.system.type?.value || "";
       const consNameLC = refinedName.toLowerCase();
       const consDescPlain = finalDesc.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
       const consText = consNameLC + " " + consDescPlain;
 
-      if ((consSubtype === "potion" || consSubtype === "food") &&
-          (consText.includes("heal") || consText.includes("restore") || consText.includes("regain") || consText.includes("hit point"))) {
+      newItemData.system.activities = {};
+      const consumptionTargets = [{ type: "itemUses", value: "1", scaling: {} }];
+      let activityCreated = false;
+
+      // Healing potions/foods — detect and create heal activity
+      const isHealing = (consSubtype === "potion" || consSubtype === "food") &&
+        (consText.includes("heal") || consText.includes("restore") || consText.includes("regain") || consText.includes("hit point") || consText.includes("hp"));
+      if (isHealing) {
         const healMatch = consDescPlain.match(/(\d+)d(\d+)\s*([+-]\s*\d+)?/i);
+        let healNum, healDenom, healBonus;
         if (healMatch) {
-          newItemData.system.activities = {};
-          const potionHealActivity = buildHealActivity(
-            parseInt(healMatch[1], 10),
-            parseInt(healMatch[2], 10),
-            (healMatch[3] || "0").replace(/\s+/g, "").replace(/^\+/, ""),
-            [{ type: "itemUses", value: "1", scaling: {} }]
-          );
-          potionHealActivity.activation = { type: "action", override: false };
-          newItemData.system.activities[potionHealActivity._id] = potionHealActivity;
-          console.log("Consumable heal activity created.");
+          healNum = parseInt(healMatch[1], 10);
+          healDenom = parseInt(healMatch[2], 10);
+          healBonus = (healMatch[3] || "0").replace(/\s+/g, "").replace(/^\+/, "");
+        } else {
+          // Default healing formula based on rarity (PHB healing potion scale)
+          const rarity = (parsed.rarity || "common").toLowerCase();
+          const HEAL_DEFAULTS = {
+            "common": { num: 2, die: 4, bonus: "2" },
+            "uncommon": { num: 4, die: 4, bonus: "4" },
+            "rare": { num: 8, die: 4, bonus: "8" },
+            "very rare": { num: 10, die: 4, bonus: "20" },
+            "veryrare": { num: 10, die: 4, bonus: "20" },
+            "legendary": { num: 10, die: 4, bonus: "20" }
+          };
+          const def = HEAL_DEFAULTS[rarity] || HEAL_DEFAULTS["common"];
+          healNum = def.num;
+          healDenom = def.die;
+          healBonus = def.bonus;
+          console.log(`No dice formula in description — using default heal for ${rarity}: ${healNum}d${healDenom}+${healBonus}`);
         }
+        const potionHealActivity = buildHealActivity(healNum, healDenom, healBonus, consumptionTargets);
+        potionHealActivity.activation = { type: "action", override: false };
+        newItemData.system.activities[potionHealActivity._id] = potionHealActivity;
+        activityCreated = true;
+        console.log("Consumable heal activity created.");
+      }
+
+      // Non-healing consumables — create a utility "Use" activity so the item is usable
+      if (!activityCreated) {
+        const useActivity = buildUtilityActivity("Use", "action");
+        useActivity.consumption = {
+          scaling: { allowed: false },
+          spellSlot: false,
+          targets: consumptionTargets
+        };
+        newItemData.system.activities[useActivity._id] = useActivity;
+        console.log("Consumable utility activity created.");
       }
 
       // Set uses for consumables with autoDestroy
@@ -1122,9 +1225,18 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
   // Passive mechanical effects from GPT (resistances, skill advantages, bonuses, etc.)
   // For armor items, skip AC/stealth effects — those are already handled by
   // system.armor fields and would double-count if also created as Active Effects.
+  // For consumables, effects are applied on use (transfer: false) and linked to the activity.
   if (parsed.mechanicalEffects && Array.isArray(parsed.mechanicalEffects) && parsed.mechanicalEffects.length > 0) {
     const isArmorForEffects = foundryItemType === "equipment" &&
       ["light", "medium", "heavy", "natural", "shield"].includes(newItemData.system.type?.value);
+    const isConsumable = foundryItemType === "consumable";
+
+    // For consumables, compute effect duration from GPT's effectDuration field
+    let consumableDuration = {};
+    if (isConsumable && parsed.effectDuration) {
+      const secs = durationToSeconds(parsed.effectDuration.unit, parsed.effectDuration.value);
+      if (secs) consumableDuration.seconds = secs;
+    }
 
     newItemData.effects = newItemData.effects || [];
     for (const me of parsed.mechanicalEffects) {
@@ -1138,10 +1250,21 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       if (mapped) effChanges.push(mapped);
 
       if (effChanges.length > 0) {
-        newItemData.effects.push(buildActiveEffect(me.name || "Effect", effChanges, {
-          transfer: true,
+        const effect = buildActiveEffect(me.name || "Effect", effChanges, {
+          transfer: isConsumable ? false : true,
+          duration: isConsumable ? consumableDuration : {},
           img: newItemData.img
-        }));
+        });
+        newItemData.effects.push(effect);
+
+        // For consumables, link the effect to the first activity so it applies on use
+        if (isConsumable && newItemData.system.activities) {
+          const firstActId = Object.keys(newItemData.system.activities)[0];
+          if (firstActId) {
+            newItemData.system.activities[firstActId].effects = newItemData.system.activities[firstActId].effects || [];
+            newItemData.system.activities[firstActId].effects.push({ _id: effect._id });
+          }
+        }
       }
     }
     console.log("Active Effects created:", newItemData.effects.length);
@@ -1220,6 +1343,21 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
   // ---------- Create the item ----------
 
   let createdItem = await Item.create(newItemData);
+
+  // Record in generation history
+  if (game.chatGPTItemGenerator?.history) {
+    const hist = game.chatGPTItemGenerator.history;
+    hist.push({
+      timestamp: Date.now(),
+      prompt: itemPrompt,
+      itemName: createdItem.name,
+      itemType: foundryItemType,
+      itemId: createdItem.id,
+      imagePath: imagePath || "",
+      rarity: parsed.rarity || "common"
+    });
+    if (hist.length > 50) hist.shift();
+  }
 
   updateProgressBar(100);
   hideProgressBar();

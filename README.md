@@ -1,12 +1,9 @@
 <div align="center">
 
-<img width="1974" height="1294" alt="image" src="https://github.com/user-attachments/assets/6ff2855d-b7da-44da-bc53-287909156f12" />
-
-
 # ChatGPT Item Generator for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-[![Version](https://img.shields.io/badge/Version-2.0.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
+[![Version](https://img.shields.io/badge/Version-2.1.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
 <br>
 
@@ -22,20 +19,19 @@
 
 > [!NOTE]
 >
-> ### 🆕 What's New in v2.0
+> ### 🆕 What's New in v2.1
 >
-> Version 2.0 is a **complete rewrite** — the monolithic codebase has been rebuilt from the ground up into 15 modular ES modules. Here's what's new:
+> Version 2.1 builds on the v2.0 rewrite with **quality-of-life features** and **smarter generation**:
 >
-> - **D&D 5e v4/v5 Activities** — Attack, Save, Damage, Heal, Utility, and Cast activities auto-generated on items
-> - **Active Effects** — 80+ effect keys mapped from item descriptions (skills, saves, AC, resistances, immunities, senses, and more)
-> - **PHB Defaults** — 40+ weapons and 18 armor types with official Player's Handbook stats as authoritative fallbacks
-> - **Two-Pass Description Validation** — Regex scan + GPT-informed scan extracts every mechanical bonus into proper effects
-> - **Three-Stage Type Safety Net** — Items are always classified correctly, even when the AI gets it wrong
-> - **GPT-4.1 & GPT Image 1** — Latest OpenAI models supported out of the box
-> - **Castable Spell Embedding** — Items with spells get Cast activities linked to real spell documents
-> - **New Item Types** — Container and Background support added
-> - **Themed Dialog UI** — Dark-themed generator dialog with polished styling
-> - **Foundry v13 Native** — Full native DOM support, zero deprecation warnings
+> - **Prompt Templates** — 10 built-in presets (weapons, armor, potions, spells, feats, loot tables, wild magic) that auto-fill the prompt, type, and mode
+> - **Generation History** — Session log of all generated items with name, type, rarity, and timestamp
+> - **Token Cost Tracker** — Live per-item token count in the progress bar, session totals in History
+> - **Rarity-Based Magical Bonus** — Weapons and armor automatically get +1/+2/+3 based on rarity when the AI forgets
+> - **Consumable Activities** — Healing potions always get a Heal activity (with PHB-scaled defaults); all other consumables get a Utility activity
+> - **Consumable Effects on Use** — Buff potions, poisons, and elixirs apply Active Effects when used (not passively)
+> - **Roll Table Safety Net** — High-confidence type overrides now run on roll table entries too
+> - **Image Failure Notification** — Clear warning when image generation fails instead of silent fallback
+> - **DALL-E Deprecation Warning** — Permanent notification if using deprecated image models
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 
@@ -58,7 +54,10 @@
 ### AI-Powered Item Creation
 - **One-Click Generation:** Describe what you want — the module creates a fully populated item sheet with name, description, stats, image, and all dnd5e data fields.
 - **All Item Types:** Weapons, armor, shields, spells, feats, consumables (potions, scrolls, ammunition), tools, loot, containers, and backgrounds.
-- 🆕 **Smart Type Detection:** A three-stage safety net ensures items are always classified correctly, even when the AI gets it wrong.
+- **Smart Type Detection:** A three-stage safety net ensures items are always classified correctly, even when the AI gets it wrong.
+- 🆕 **Prompt Templates:** 10 built-in presets — pick a template and it auto-fills the prompt, item type, and generation mode.
+- 🆕 **Generation History:** View all items generated this session with name, type, rarity, and timestamp. One-click back button to return to the generator.
+- 🆕 **Token Cost Tracker:** Live per-item token count displayed in the progress bar during generation, with session totals in the History dialog.
 
 ### 🆕 D&D 5e v4/v5 Native Support
 - 🆕 **Activities System:** Automatically creates Attack, Save, Damage, Heal, Utility, and Cast activities with correct formulas, save DCs, and damage parts.
@@ -120,6 +119,7 @@ Navigate to the **Items** tab in the sidebar. Click the **"Generate AI (Item or 
 ### 3. Configure Options
 - **Type Selection:** Auto-detect (let the AI decide) or explicitly choose: Weapon, Armor, Equipment, Consumable, Tool, Loot, Spell, Feat, Container, or Background.
 - **Name Override:** Optionally provide a specific name, or leave blank for AI naming.
+- 🆕 **Template:** Pick from 10 built-in presets to auto-fill the prompt, type, and mode — or write your own from scratch.
 - **Entry Count:** For roll tables, set how many entries to generate.
 
 ### 4. Describe Your Item
@@ -147,7 +147,7 @@ Click **Generate** and wait for the progress bar to complete. The item appears i
 | **Equipment** | Clothing, trinkets, rings, amulets, cloaks — with passive effects, charges, and castable spells |
 | **Spell** | Level, school, components, range, duration, casting time, save/attack activities, scaling |
 | **Feat** | Feat type, prerequisites, passive effects, granted activities |
-| **Consumable** | Potion/scroll/ammo/food subtypes, uses, charges, healing or buff effects |
+| **Consumable** | Potion/scroll/ammo/food subtypes, uses, charges, Heal activity for potions (PHB-scaled defaults), Utility activity for non-healing consumables, buff/poison effects applied on use |
 | **Tool** | Tool type, proficiency, ability check bonuses |
 | **Loot** | Gems, art objects, trade goods — with passive effects and charges |
 | **Container** | Bags, chests, and other storage items |
@@ -196,8 +196,10 @@ All settings are found in **Game Settings > Configure Settings > ChatGPT Item Ge
 
 ## 🗺 Roadmap
 
-- Safety net coverage for roll table items
-- Enhanced UI with live item preview
+- Item preview before creation
+- Regenerate individual parts (name, image, description)
+- Batch single-item generation
+- Compendium-aware validation
 - Community contributions welcome — feedback and ideas are appreciated
 
 <br>
@@ -217,32 +219,3 @@ For issues or feature requests, please visit the [GitHub Issues](https://github.
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 </div>
-
-## 💰 Estimated API Costs
-
-All costs are estimates based on current OpenAI pricing (March 2026) using default model settings.
-
-### Single Item: ~$0.05
-
-| Call | Model | Cost |
-|------|-------|------|
-| Item JSON | gpt-4.1 | ~$0.007 |
-| Image | gpt-image-1 | ~$0.04 |
-| Name + Validation | gpt-4.1-mini | ~$0.001 |
-
-### 20-Entry Roll Table: ~$1.00
-
-| Call | Model | Cost |
-|------|-------|------|
-| Table JSON | gpt-4.1 | ~$0.02 |
-| 20× Item JSON | gpt-4.1 | ~$0.14 |
-| 20× Images | gpt-image-1 | ~$0.80 |
-| 20× Validation | gpt-4.1-mini | ~$0.01 |
-
-> [!TIP]
->
-> **Images account for ~80% of the cost.** To reduce costs:
-> - Use **Stable Diffusion** locally for free image generation — drops a 20-entry table from ~$1.00 to ~$0.17
-> - Switch to **gpt-4.1-mini** as the primary model to reduce text costs by ~80%
-> - A typical session of 5–10 items costs roughly **$0.25–$0.50**
-

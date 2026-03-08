@@ -31,6 +31,28 @@ async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens
     body: JSON.stringify(body)
   });
   const data = await response.json();
+
+  // Accumulate token usage for session + current item cost tracking
+  if (data.usage && game.chatGPTItemGenerator?.sessionCost) {
+    const usage = {
+      prompt: data.usage.prompt_tokens || 0,
+      completion: data.usage.completion_tokens || 0,
+      total: data.usage.total_tokens || 0
+    };
+    const session = game.chatGPTItemGenerator.sessionCost;
+    session.promptTokens += usage.prompt;
+    session.completionTokens += usage.completion;
+    session.totalTokens += usage.total;
+    session.apiCalls += 1;
+    if (game.chatGPTItemGenerator.currentCost) {
+      const current = game.chatGPTItemGenerator.currentCost;
+      current.promptTokens += usage.prompt;
+      current.completionTokens += usage.completion;
+      current.totalTokens += usage.total;
+      current.apiCalls += 1;
+    }
+  }
+
   return data.choices?.[0]?.message?.content?.trim() || "";
 }
 
@@ -144,7 +166,9 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
           typePrompt = "This is a consumable item (potion, scroll, poison, etc.). " +
             "Include 'itemType' set to 'consumable' in the JSON. " +
             "Include the consumable subtype as 'consumableType' (one of 'potion','scroll','poison','food','ammo','trinket','wand','rod'). " +
-            "If this is a healing potion, the description MUST mention the exact healing dice formula (e.g. '2d4+2 hit points' or '4d4+4 hit points'). ";
+            "If this is a healing potion, the description MUST mention the exact healing dice formula (e.g. '2d4+2 hit points' or '4d4+4 hit points'). " +
+            "If this consumable grants temporary effects when used (e.g. a potion of strength grants a strength bonus, a potion of speed grants extra movement, a poison applies the poisoned condition, an elixir grants fire resistance), you MUST include 'mechanicalEffects' as an array describing each effect. " +
+            "Also include 'effectDuration' as an object with 'value' (number) and 'unit' (one of 'round','minute','hour','day') for how long the consumable's effects last. ";
         } else if (weaponHints.some(k => promptLC.includes(k))) {
           typePrompt = WEAPON_PROMPT_BLOCK;
         } else {
@@ -393,6 +417,15 @@ export async function generateItemImage(prompt, config) {
     const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.${fileExt}`;
     const targetFolder = config.imageFolder;
     await ensureFolder(targetFolder);
+
+    // Track image generation for session + current item cost
+    if (game.chatGPTItemGenerator?.sessionCost) {
+      game.chatGPTItemGenerator.sessionCost.imageGenerations += 1;
+    }
+    if (game.chatGPTItemGenerator?.currentCost) {
+      game.chatGPTItemGenerator.currentCost.imageGenerations += 1;
+    }
+
     return await saveImageLocally(dataUrl, fileName, targetFolder);
   }
 

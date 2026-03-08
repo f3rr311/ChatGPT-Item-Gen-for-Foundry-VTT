@@ -9,6 +9,22 @@ import { createFoundryRollTableFromDialog } from './generators/table-generator.j
 
 const MODULE_ID = "chatgpt-item-generator";
 
+// ---------- Prompt Templates ----------
+
+const PROMPT_TEMPLATES = [
+  { label: "— Select a template —", prompt: "", objectType: "", explicitType: "", tableType: "" },
+  { label: "Uncommon Weapon", prompt: "An uncommon magical weapon with a minor enchantment, suitable for a mid-level adventurer.", objectType: "item", explicitType: "Weapon", tableType: "" },
+  { label: "Rare Armor", prompt: "A rare suit of magical armor with protective enchantments that shield the wearer from harm.", objectType: "item", explicitType: "Armor", tableType: "" },
+  { label: "Legendary Wondrous Item", prompt: "A legendary wondrous item of immense power, coveted by heroes and villains alike.", objectType: "item", explicitType: "Equipment", tableType: "" },
+  { label: "Healing Potion", prompt: "A potion of healing that restores hit points when consumed. Glows with a soft red light.", objectType: "item", explicitType: "Consumable", tableType: "" },
+  { label: "3rd-Level Spell", prompt: "A 3rd-level spell with unique and creative magical effects.", objectType: "item", explicitType: "Spell", tableType: "" },
+  { label: "Cursed Artifact", prompt: "A powerful cursed artifact with great power but a terrible drawback that haunts its wielder.", objectType: "item", explicitType: "", tableType: "" },
+  { label: "Magical Staff", prompt: "A magical staff imbued with arcane power, capable of casting spells and channeling energy.", objectType: "item", explicitType: "Weapon", tableType: "" },
+  { label: "Character Feat", prompt: "A unique feat that grants a special ability or combat technique to the character.", objectType: "item", explicitType: "Feat", tableType: "" },
+  { label: "Random Loot Table", prompt: "A random loot table with assorted treasures, gems, art objects, and magical items found in a dragon's hoard.", objectType: "rolltable", explicitType: "", tableType: "items" },
+  { label: "Wild Magic Table", prompt: "A wild magic surge table with chaotic and unpredictable random effects that occur when magic goes awry.", objectType: "rolltable", explicitType: "", tableType: "generic" }
+];
+
 // ---------- Config Builder ----------
 
 function buildConfig() {
@@ -33,6 +49,82 @@ function buildConfig() {
 }
 
 // ---------- Dialog ----------
+
+// ---------- History Dialog ----------
+
+function openHistoryDialog() {
+  const history = game.chatGPTItemGenerator?.history || [];
+
+  let rows = "";
+  if (history.length === 0) {
+    rows = `<tr><td colspan="4" style="text-align:center; color:#888;">No items generated this session.</td></tr>`;
+  } else {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const h = history[i];
+      const time = new Date(h.timestamp).toLocaleTimeString();
+      const typeIcon = h.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
+      const display = h.entryCount ? `${h.itemName} (${h.entryCount} entries)` : h.itemName;
+      rows += `<tr>
+        <td><i class="fas ${typeIcon}"></i> ${display}</td>
+        <td>${h.itemType}</td>
+        <td>${h.rarity || "—"}</td>
+        <td>${time}</td>
+      </tr>`;
+    }
+  }
+
+  // Session cost summary
+  const cost = game.chatGPTItemGenerator?.sessionCost;
+  const costLine = cost && (cost.apiCalls > 0 || cost.imageGenerations > 0)
+    ? `<p style="text-align:center; font-size:0.8rem; color:#aaa; margin:8px 0 0;">Session: ${cost.totalTokens.toLocaleString()} tokens | ${cost.apiCalls} API calls | ${cost.imageGenerations} images</p>`
+    : "";
+
+  new Dialog({
+    title: "Generation History",
+    content: `
+      <div class="chatgpt-gen-form">
+        <div class="chatgpt-dialog-header">
+          <i class="fas fa-clock-rotate-left"></i>
+          <span>Session History (${history.length} items)</span>
+        </div>
+        <div style="max-height:400px; overflow-y:auto;">
+          <table class="chatgpt-history-table" style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid #444;">
+                <th style="text-align:left; padding:4px 8px;">Name</th>
+                <th style="text-align:left; padding:4px 8px;">Type</th>
+                <th style="text-align:left; padding:4px 8px;">Rarity</th>
+                <th style="text-align:left; padding:4px 8px;">Time</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${costLine}
+      </div>
+    `,
+    buttons: {
+      back: {
+        icon: '<i class="fas fa-arrow-left"></i>',
+        label: "Back",
+        callback: () => openGenerateDialog()
+      }
+    },
+    default: "back",
+    render: (html) => {
+      const root = html instanceof jQuery ? html[0] : html;
+      const dialog = root.closest('.dialog');
+      if (dialog) {
+        dialog.classList.add('chatgpt-dialog');
+        dialog.style.height = 'auto';
+        dialog.style.maxHeight = 'none';
+        dialog.style.minWidth = '500px';
+      }
+    }
+  }).render(true);
+}
+
+// ---------- Generate Dialog ----------
 
 function openGenerateDialog() {
   const config = buildConfig();
@@ -85,6 +177,12 @@ function openGenerateDialog() {
             <input id="ai-name-override" type="text" placeholder="Leave blank to auto-generate" />
           </div>
           <div class="form-group">
+            <label>Template</label>
+            <select id="ai-template">
+              ${PROMPT_TEMPLATES.map((t, i) => `<option value="${i}">${t.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="form-group">
             <label>Prompt</label>
             <textarea id="ai-description" rows="4" placeholder="e.g., A flaming longsword that deals extra fire damage to undead creatures..."></textarea>
           </div>
@@ -114,6 +212,11 @@ function openGenerateDialog() {
             await createUniqueItemDoc(desc, config, nameOverride, explicitType);
           }
         }
+      },
+      history: {
+        icon: '<i class="fas fa-clock-rotate-left"></i>',
+        label: "History",
+        callback: () => openHistoryDialog()
       },
       cancel: {
         icon: '<i class="fas fa-times"></i>',
@@ -165,6 +268,38 @@ function openGenerateDialog() {
       updateVisibility();
       objectTypeSelect.addEventListener("change", updateVisibility);
       tableTypeSelect.addEventListener("change", updateVisibility);
+
+      // Template dropdown — populate fields on selection
+      const templateSelect = root.querySelector("#ai-template");
+      const promptTextarea = root.querySelector("#ai-description");
+      const explicitTypeSelect = root.querySelector("#ai-explicit-type");
+
+      templateSelect.addEventListener("change", () => {
+        const idx = parseInt(templateSelect.value, 10);
+        const tpl = PROMPT_TEMPLATES[idx];
+        if (!tpl || idx === 0) return; // "Select a template" placeholder
+
+        // Fill the prompt textarea
+        promptTextarea.value = tpl.prompt;
+
+        // Switch object type (item vs rolltable)
+        if (tpl.objectType) {
+          objectTypeSelect.value = tpl.objectType;
+          updateVisibility();
+        }
+
+        // Set explicit item type for single items
+        if (tpl.objectType === "item" && tpl.explicitType) {
+          explicitTypeSelect.value = tpl.explicitType;
+        } else if (tpl.objectType === "item") {
+          explicitTypeSelect.value = "";
+        }
+
+        // Set roll table mode
+        if (tpl.objectType === "rolltable" && tpl.tableType) {
+          tableTypeSelect.value = tpl.tableType;
+        }
+      });
     }
   }).render(true);
 }
@@ -179,7 +314,22 @@ Hooks.once("ready", () => {
   // Expose a lightweight API object on game for backward compat
   game.chatGPTItemGenerator = {
     createFoundryAIObject: openGenerateDialog,
-    openGenerateDialog
+    openGenerateDialog,
+    sessionCost: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      apiCalls: 0,
+      imageGenerations: 0
+    },
+    currentCost: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      apiCalls: 0,
+      imageGenerations: 0
+    },
+    history: []
   };
 
   // Warn about deprecated image models
@@ -191,7 +341,7 @@ Hooks.once("ready", () => {
     );
   }
 
-  console.log("ChatGPT Item Generator v2.0.0 loaded");
+  console.log("ChatGPT Item Generator v2.1.0 loaded");
 });
 
 Hooks.on("renderItemDirectory", (app, html, data) => {

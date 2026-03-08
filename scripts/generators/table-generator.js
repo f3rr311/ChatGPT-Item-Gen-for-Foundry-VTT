@@ -134,6 +134,23 @@ export async function createFoundryRollTableFromDialog(tableDesc, explicitType, 
     ui.notifications.warn("GPT returned no entries. Table is empty.");
   }
   await newTable.createEmbeddedDocuments("TableResult", results);
+
+  // Record in generation history
+  if (game.chatGPTItemGenerator?.history) {
+    const hist = game.chatGPTItemGenerator.history;
+    hist.push({
+      timestamp: Date.now(),
+      prompt: tableDesc,
+      itemName: newTable.name,
+      itemType: "rolltable",
+      itemId: newTable.id,
+      imagePath: "",
+      rarity: "",
+      entryCount: results.length
+    });
+    if (hist.length > 50) hist.shift();
+  }
+
   updateProgressBar(100);
   hideProgressBar();
   ui.notifications.info(`New Roll Table created: ${newTable.name}`);

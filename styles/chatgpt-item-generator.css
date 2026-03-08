@@ -201,3 +201,24 @@
 .chatgpt-dialog .window-header .window-title {
     color: var(--color-text-light-highlight, #e0e0e0);
 }
+
+/* ---------- History Table ---------- */
+
+.chatgpt-dialog .chatgpt-history-table th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--color-text-light-highlight, #b0b0b0);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.chatgpt-dialog .chatgpt-history-table td {
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    color: var(--color-text-primary, #ddd);
+    border-bottom: 1px solid var(--color-border-light-tertiary, #333);
+}
+
+.chatgpt-dialog .chatgpt-history-table tr:hover td {
+    background: var(--color-bg-btn, rgba(124, 92, 252, 0.08));
+}
