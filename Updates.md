@@ -1,5 +1,41 @@
 # Update Logs
 
+## v2.2.0 — Item Preview, Regenerate Parts, Compendium Validation & AI Folders
+
+### 🚀 New Features
+
+* **Item Preview Dialog:**
+  * Full preview of name, description, image, and stat badges before the item is created.
+  * Editable name and description fields — tweak anything before committing.
+  * Regenerate buttons for name, image, or description individually without re-running the full generation.
+  * **Try Again** button re-runs the full generation with the same prompt until you get what you want.
+* **Regenerate From History:**
+  * Regen Name, Image, or Description for any previously created item directly from the History dialog.
+  * Updates the existing item in your world — no duplicates created.
+  * Roll tables show entry count; individual items show full regen controls.
+* **Compendium Validation:**
+  * Generated items are cross-referenced against SRD compendium packs for stat accuracy.
+  * Duplicate detection warns you if a similar item already exists in your world.
+  * Smart defaults fallback — when GPT misses weapon damage or armor AC, compendium data fills the gap.
+* **AI Items Folder:**
+  * All generated items are automatically placed in an "AI Items" folder.
+  * Roll table items go into a named subfolder (e.g., "AI Items / Dragon's Hoard").
+  * Folders are created automatically if they don't exist.
+* **Cost Estimation (USD):**
+  * Estimated dollar cost shown on the progress bar during generation.
+  * Session totals in the History dialog — dollars, tokens, API calls, and images.
+  * Automatically uses pricing for your configured models (GPT-4.1, GPT-4.1-mini, GPT Image 1, etc.).
+
+### ✨ Improvements
+
+* **Resizable Dialogs:** Generate, Preview, and History dialogs can all be resized by dragging.
+* **Right-Click Spellcheck:** Native browser spellcheck enabled on all text input fields (stopPropagation on contextmenu).
+* **Shortened Image Filenames:** Image files use the first 4 words of the prompt + timestamp instead of the full prompt string.
+* **Stacked Regen Layout:** Regen buttons positioned below fields instead of inline for a cleaner look.
+* **History Dialog Layout:** Flex-based layout ensures the table fills available space when the dialog is resized.
+
+---
+
 ## v2.1.0 — Prompt Templates, Generation History, Token Tracking & Smarter Consumables
 
 ### 🚀 New Features

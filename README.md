@@ -4,7 +4,7 @@
 # ChatGPT Item Generator for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-[![Version](https://img.shields.io/badge/Version-2.1.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
+[![Version](https://img.shields.io/badge/Version-2.2.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
 <br>
 
@@ -20,19 +20,18 @@
 
 > [!NOTE]
 >
-> ### 🆕 What's New in v2.1
+> ### 🆕 What's New in v2.2
 >
-> Version 2.1 builds on the v2.0 rewrite with **quality-of-life features** and **smarter generation**:
+> Version 2.2 adds **item preview**, **regeneration**, **compendium validation**, and **smarter organization**:
 >
-> - **Prompt Templates** — 10 built-in presets (weapons, armor, potions, spells, feats, loot tables, wild magic) that auto-fill the prompt, type, and mode
-> - **Generation History** — Session log of all generated items with name, type, rarity, and timestamp
-> - **Token Cost Tracker** — Live per-item token count in the progress bar, session totals in History
-> - **Rarity-Based Magical Bonus** — Weapons and armor automatically get +1/+2/+3 based on rarity when the AI forgets
-> - **Consumable Activities** — Healing potions always get a Heal activity (with PHB-scaled defaults); all other consumables get a Utility activity
-> - **Consumable Effects on Use** — Buff potions, poisons, and elixirs apply Active Effects when used (not passively)
-> - **Roll Table Safety Net** — High-confidence type overrides now run on roll table entries too
-> - **Image Failure Notification** — Clear warning when image generation fails instead of silent fallback
-> - **DALL-E Deprecation Warning** — Permanent notification if using deprecated image models
+> - **Item Preview Dialog** — See and edit name, description, image, and stats before the item is created
+> - **Regenerate Parts** — Don't like the name, image, or description? Regen each individually from Preview or History
+> - **Try Again / Variations** — Re-run the full generation with the same prompt until you're satisfied
+> - **Compendium Validation** — SRD cross-reference, duplicate detection, and smart defaults when GPT misses stats
+> - **AI Items Folder** — All items auto-placed in an "AI Items" folder; roll table items get named subfolders
+> - **Cost Estimation** — Estimated USD cost on the progress bar and session totals in History
+> - **Resizable Dialogs** — All dialogs can be resized by dragging
+> - **Right-Click Spellcheck** — Native browser spellcheck on all text fields
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 
@@ -56,9 +55,13 @@
 - **One-Click Generation:** Describe what you want — the module creates a fully populated item sheet with name, description, stats, image, and all dnd5e data fields.
 - **All Item Types:** Weapons, armor, shields, spells, feats, consumables (potions, scrolls, ammunition), tools, loot, containers, and backgrounds.
 - **Smart Type Detection:** A three-stage safety net ensures items are always classified correctly, even when the AI gets it wrong.
-- 🆕 **Prompt Templates:** 10 built-in presets — pick a template and it auto-fills the prompt, item type, and generation mode.
-- 🆕 **Generation History:** View all items generated this session with name, type, rarity, and timestamp. One-click back button to return to the generator.
-- 🆕 **Token Cost Tracker:** Live per-item token count displayed in the progress bar during generation, with session totals in the History dialog.
+- 🆕 **Item Preview Dialog:** Review and edit name, description, image, and stat badges before committing — with per-field regeneration.
+- 🆕 **Try Again / Variations:** Re-run the full generation with the same prompt from the preview until you get exactly what you want.
+- 🆕 **Compendium Validation:** Items cross-referenced against SRD compendium packs with duplicate detection and smart defaults fallback.
+- 🆕 **AI Items Folder:** All generated items auto-placed in an "AI Items" folder; roll table items get named subfolders.
+- **Prompt Templates:** 10 built-in presets — pick a template and it auto-fills the prompt, item type, and generation mode.
+- **Generation History:** View all items generated this session with regen buttons for name, image, or description on each entry.
+- 🆕 **Cost Estimation:** Estimated USD cost on the progress bar during generation and session totals in the History dialog.
 
 ### 🆕 D&D 5e v4/v5 Native Support
 - 🆕 **Activities System:** Automatically creates Attack, Save, Damage, Heal, Utility, and Cast activities with correct formulas, save DCs, and damage parts.
@@ -197,10 +200,11 @@ All settings are found in **Game Settings > Configure Settings > ChatGPT Item Ge
 
 ## 🗺 Roadmap
 
-- Item preview before creation
-- Regenerate individual parts (name, image, description)
-- Batch single-item generation
-- Compendium-aware validation
+- ✅ ~~Item preview before creation~~ (v2.2)
+- ✅ ~~Regenerate individual parts (name, image, description)~~ (v2.2)
+- ✅ ~~Compendium-aware validation~~ (v2.2)
+- **NPC Generation** — Full Actor creation with ability scores, HP, AC, CR, embedded attacks/features/spells, portrait + token images
+- **Pathfinder 2e Support** — System detection with PF2e-specific data models and prompts
 - Community contributions welcome — feedback and ideas are appreciated
 
 <br>
