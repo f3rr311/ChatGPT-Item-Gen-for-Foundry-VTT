@@ -6,7 +6,7 @@
 import { generateRollTableJSON, fixInvalidJSON } from '../api/openai.js';
 import { extractValidJSON } from '../utils/json-utils.js';
 import { showProgressBar, updateProgressBar, hideProgressBar } from '../utils/ui-utils.js';
-import { createUniqueItemDoc } from './item-generator.js';
+import { createUniqueItemDoc, getOrCreateItemFolder } from './item-generator.js';
 
 // ---------- JSON Parsing ----------
 
@@ -113,11 +113,21 @@ export async function createFoundryRollTableFromDialog(tableDesc, explicitType, 
   ui.notifications.info(`Building table with ${parsedTable.entries?.length || 0} entries, tableType = ${tableType}.`);
 
   if (tableType === "items") {
+    // Create a subfolder under "AI Items" named after the roll table
+    let tableFolderId = null;
+    try {
+      const parentId = await getOrCreateItemFolder("AI Items");
+      const tableName = parsedTable.name || tableDesc || "GPT Roll Table";
+      tableFolderId = await getOrCreateItemFolder(tableName, parentId);
+    } catch (err) {
+      console.warn("chatgpt-item-generator: Could not create table folder:", err.message);
+    }
+
     for (let entry of (parsedTable.entries || [])) {
       let textVal = entry.text || "Mysterious Item";
       // Use per-entry itemType from GPT if available, otherwise fall back to global explicitType
       let entryType = entry.itemType || explicitType || "";
-      let createdItem = await createUniqueItemDoc(textVal, config, textVal, entryType);
+      let createdItem = await createUniqueItemDoc(textVal, config, textVal, entryType, tableFolderId);
       if (createdItem && createdItem.name) {
         results.push(buildDocumentResult(createdItem, entry, config.isV13Core));
       } else {

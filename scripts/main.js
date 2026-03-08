@@ -4,8 +4,12 @@
  */
 
 import { registerSettings } from './settings.js';
-import { createUniqueItemDoc } from './generators/item-generator.js';
+import { generateItemData, parseItemJSON } from './generators/item-generator.js';
 import { createFoundryRollTableFromDialog } from './generators/table-generator.js';
+import { openPreviewDialog } from './ui/preview-dialog.js';
+import { showProgressBar, hideProgressBar, estimateCost } from './utils/ui-utils.js';
+import { generateItemName, refineItemName } from './generators/name-generator.js';
+import { generateItemImage, generateItemJSON } from './api/openai.js';
 
 const MODULE_ID = "chatgpt-item-generator";
 
@@ -57,27 +61,37 @@ function openHistoryDialog() {
 
   let rows = "";
   if (history.length === 0) {
-    rows = `<tr><td colspan="4" style="text-align:center; color:#888;">No items generated this session.</td></tr>`;
+    rows = `<tr><td colspan="5" style="text-align:center; color:#888;">No items generated this session.</td></tr>`;
   } else {
     for (let i = history.length - 1; i >= 0; i--) {
       const h = history[i];
       const time = new Date(h.timestamp).toLocaleTimeString();
       const typeIcon = h.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
       const display = h.entryCount ? `${h.itemName} (${h.entryCount} entries)` : h.itemName;
+      const isRollTable = h.itemType === "rolltable";
+      const regenButtons = isRollTable ? "—" : `
+        <button class="regen-btn" data-action="name" data-idx="${i}" title="Regenerate Name"><i class="fas fa-pen"></i></button>
+        <button class="regen-btn" data-action="image" data-idx="${i}" title="Regenerate Image"><i class="fas fa-image"></i></button>
+        <button class="regen-btn" data-action="description" data-idx="${i}" title="Regenerate Description"><i class="fas fa-file-alt"></i></button>
+      `;
       rows += `<tr>
         <td><i class="fas ${typeIcon}"></i> ${display}</td>
         <td>${h.itemType}</td>
         <td>${h.rarity || "—"}</td>
         <td>${time}</td>
+        <td>${regenButtons}</td>
       </tr>`;
     }
   }
 
   // Session cost summary
   const cost = game.chatGPTItemGenerator?.sessionCost;
-  const costLine = cost && (cost.apiCalls > 0 || cost.imageGenerations > 0)
-    ? `<p style="text-align:center; font-size:0.8rem; color:#aaa; margin:8px 0 0;">Session: ${cost.totalTokens.toLocaleString()} tokens | ${cost.apiCalls} API calls | ${cost.imageGenerations} images</p>`
-    : "";
+  let costLine = "";
+  if (cost && (cost.apiCalls > 0 || cost.imageGenerations > 0)) {
+    const dollars = estimateCost(cost);
+    const dollarStr = dollars < 0.01 ? "<$0.01" : `~$${dollars.toFixed(2)}`;
+    costLine = `<p style="text-align:center; font-size:0.8rem; color:#aaa; margin:8px 0 0;">Session: <strong>${dollarStr}</strong> | ${cost.totalTokens.toLocaleString()} tokens | ${cost.apiCalls} API calls | ${cost.imageGenerations} images</p>`;
+  }
 
   new Dialog({
     title: "Generation History",
@@ -87,7 +101,7 @@ function openHistoryDialog() {
           <i class="fas fa-clock-rotate-left"></i>
           <span>Session History (${history.length} items)</span>
         </div>
-        <div style="max-height:400px; overflow-y:auto;">
+        <div class="chatgpt-history-scroll">
           <table class="chatgpt-history-table" style="width:100%; border-collapse:collapse;">
             <thead>
               <tr style="border-bottom:1px solid #444;">
@@ -95,6 +109,7 @@ function openHistoryDialog() {
                 <th style="text-align:left; padding:4px 8px;">Type</th>
                 <th style="text-align:left; padding:4px 8px;">Rarity</th>
                 <th style="text-align:left; padding:4px 8px;">Time</th>
+                <th style="text-align:left; padding:4px 8px;">Actions</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -117,11 +132,70 @@ function openHistoryDialog() {
       if (dialog) {
         dialog.classList.add('chatgpt-dialog');
         dialog.style.height = 'auto';
-        dialog.style.maxHeight = 'none';
-        dialog.style.minWidth = '500px';
+        dialog.style.minWidth = '580px';
       }
+
+      // Attach regen button click handlers
+      root.querySelectorAll(".regen-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const action = btn.dataset.action;
+          const idx = parseInt(btn.dataset.idx, 10);
+          const h = history[idx];
+          if (!h) return;
+
+          // Find the existing item in the world
+          const item = game.items.get(h.itemId);
+          if (!item) {
+            ui.notifications.warn(`Item "${h.itemName}" no longer exists in this world.`);
+            return;
+          }
+
+          // Use fresh config for current settings
+          const config = buildConfig();
+          const combined = h.prompt + (h.explicitType ? " - " + h.explicitType : "");
+
+          // Disable button and show spinner
+          btn.disabled = true;
+          const origHTML = btn.innerHTML;
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+          try {
+            if (action === "name") {
+              const newName = await generateItemName(combined, config);
+              const refined = await refineItemName(newName, item.system.description.value, config);
+              await item.update({ name: refined });
+              h.itemName = refined;
+              ui.notifications.info(`Name updated: ${refined}`);
+            } else if (action === "image") {
+              const newPath = await generateItemImage(combined, config);
+              if (newPath) {
+                await item.update({ img: newPath });
+                h.imagePath = newPath;
+                ui.notifications.info(`Image updated for "${item.name}"`);
+              } else {
+                ui.notifications.warn("Image regeneration failed.");
+              }
+            } else if (action === "description") {
+              const rawJSON = await generateItemJSON(combined, config, h.explicitType || "");
+              const parsed = await parseItemJSON(rawJSON, config);
+              if (parsed.description) {
+                await item.update({ "system.description.value": parsed.description });
+                ui.notifications.info(`Description updated for "${item.name}"`);
+              } else {
+                ui.notifications.warn("Description regeneration returned empty.");
+              }
+            }
+          } catch (err) {
+            console.error(`History regen (${action}) failed:`, err);
+            ui.notifications.error(`Regeneration failed: ${err.message}`);
+          }
+
+          btn.disabled = false;
+          btn.innerHTML = origHTML;
+        });
+      });
     }
-  }).render(true);
+  }, { classes: ["chatgpt-dialog"], resizable: true }).render(true);
 }
 
 // ---------- Generate Dialog ----------
@@ -209,7 +283,11 @@ function openGenerateDialog() {
             // Roll tables don't use the global explicit type — GPT decides per-entry
             await createFoundryRollTableFromDialog(`${desc} -- tableType=${tableMode}`, "", config, entryCount);
           } else {
-            await createUniqueItemDoc(desc, config, nameOverride, explicitType);
+            // Generate item data, then show preview dialog for user approval
+            showProgressBar();
+            const result = await generateItemData(desc, config, nameOverride, explicitType);
+            hideProgressBar();
+            await openPreviewDialog(result);
           }
         }
       },
@@ -269,6 +347,12 @@ function openGenerateDialog() {
       objectTypeSelect.addEventListener("change", updateVisibility);
       tableTypeSelect.addEventListener("change", updateVisibility);
 
+      // Enable native right-click spellcheck on text fields
+      root.querySelectorAll("#ai-description, #ai-name-override").forEach(el => {
+        el.setAttribute("spellcheck", "true");
+        el.addEventListener("contextmenu", e => e.stopPropagation());
+      });
+
       // Template dropdown — populate fields on selection
       const templateSelect = root.querySelector("#ai-template");
       const promptTextarea = root.querySelector("#ai-description");
@@ -301,7 +385,7 @@ function openGenerateDialog() {
         }
       });
     }
-  }).render(true);
+  }, { classes: ["chatgpt-dialog"], resizable: true }).render(true);
 }
 
 // ---------- Hooks ----------

@@ -414,7 +414,8 @@ export async function generateItemImage(prompt, config) {
     }
 
     const dataUrl = `data:${mimeType};base64,${data.data[0].b64_json}`;
-    const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.${fileExt}`;
+    const shortName = prompt.replace(/[^a-zA-Z0-9 ]/g, "").split(/\s+/).slice(0, 4).join("_").toLowerCase();
+    const fileName = `${shortName}_${Date.now()}.${fileExt}`;
     const targetFolder = config.imageFolder;
     await ensureFolder(targetFolder);
 

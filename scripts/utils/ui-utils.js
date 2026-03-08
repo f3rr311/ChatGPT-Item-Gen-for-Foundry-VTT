@@ -1,7 +1,52 @@
 /**
- * Progress bar UI helpers.
+ * Progress bar UI helpers and cost estimation.
  * Uses native DOM (no jQuery) for v12+v13 compatibility.
  */
+
+// OpenAI pricing per 1M tokens (USD) — updated March 2026
+const MODEL_PRICING = {
+  "gpt-4.1":       { input: 2.00, output: 8.00 },
+  "gpt-4.1-mini":  { input: 0.40, output: 1.60 },
+  "gpt-4.1-nano":  { input: 0.10, output: 0.40 },
+  "gpt-4o":        { input: 2.50, output: 10.00 },
+  "gpt-4o-mini":   { input: 0.15, output: 0.60 },
+};
+const IMAGE_PRICING = {
+  "gpt-image-1": 0.04,   // 1024x1024 low quality
+  "dall-e-3":    0.04,
+  "dall-e-2":    0.02,
+};
+
+/**
+ * Estimate USD cost from a cost tracker object.
+ * Uses the user's configured models from game settings.
+ */
+export function estimateCost(costObj) {
+  if (!costObj) return 0;
+  const MODULE_ID = "chatgpt-item-generator";
+  const chatModel = game.settings.get(MODULE_ID, "chatModel") || "gpt-4.1";
+  const lightModel = game.settings.get(MODULE_ID, "lightModel") || "gpt-4.1-mini";
+  const imageModel = game.settings.get(MODULE_ID, "imageModel") || "gpt-image-1";
+
+  // Blend chat + light model pricing (most calls use chatModel, name gen uses lightModel)
+  // Approximate: ~70% of tokens go to chatModel, ~30% to lightModel
+  const chatRate = MODEL_PRICING[chatModel] || MODEL_PRICING["gpt-4.1"];
+  const lightRate = MODEL_PRICING[lightModel] || MODEL_PRICING["gpt-4.1-mini"];
+  const blendedInput = chatRate.input * 0.7 + lightRate.input * 0.3;
+  const blendedOutput = chatRate.output * 0.7 + lightRate.output * 0.3;
+
+  const textCost = (costObj.promptTokens * blendedInput + costObj.completionTokens * blendedOutput) / 1_000_000;
+  const imgRate = IMAGE_PRICING[imageModel] || IMAGE_PRICING["gpt-image-1"];
+  const imgCost = (costObj.imageGenerations || 0) * imgRate;
+
+  return textCost + imgCost;
+}
+
+/** Format a dollar amount for display */
+function formatCost(dollars) {
+  if (dollars < 0.01) return "<$0.01";
+  return `~$${dollars.toFixed(2)}`;
+}
 
 export function showProgressBar() {
   // Reset per-item cost tracker at the start of each generation
@@ -46,7 +91,8 @@ export function updateProgressBar(value) {
     if (game.chatGPTItemGenerator?.currentCost) {
       const c = game.chatGPTItemGenerator.currentCost;
       if (c.apiCalls > 0) {
-        label += ` | ${c.totalTokens.toLocaleString()} tokens | ${c.apiCalls} calls | ${c.imageGenerations} img`;
+        const cost = estimateCost(c);
+        label += ` | ${formatCost(cost)} | ${c.totalTokens.toLocaleString()} tokens`;
       }
     }
     text.textContent = label;
@@ -59,7 +105,8 @@ function updateSessionCostDisplay() {
   if (el && game.chatGPTItemGenerator?.sessionCost) {
     const c = game.chatGPTItemGenerator.sessionCost;
     if (c.apiCalls > 0 || c.imageGenerations > 0) {
-      el.textContent = `Session: ${c.totalTokens.toLocaleString()} tokens, ${c.apiCalls} API calls, ${c.imageGenerations} images`;
+      const sessionCost = estimateCost(c);
+      el.textContent = `Session: ${formatCost(sessionCost)} | ${c.totalTokens.toLocaleString()} tokens | ${c.apiCalls} API calls | ${c.imageGenerations} images`;
     }
   }
 }

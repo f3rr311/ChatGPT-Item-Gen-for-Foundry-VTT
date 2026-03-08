@@ -58,7 +58,8 @@ export async function generateSDImage(prompt, config) {
 
   if (imageBase64) {
     const dataUrl = `data:image/png;base64,${imageBase64}`;
-    const fileName = `${prompt.replace(/\s+/g, "_").toLowerCase()}_${Date.now()}.png`;
+    const shortName = prompt.replace(/[^a-zA-Z0-9 ]/g, "").split(/\s+/).slice(0, 4).join("_").toLowerCase();
+    const fileName = `${shortName}_${Date.now()}.png`;
     const targetFolder = config.imageFolder;
     await ensureFolder(targetFolder);
     return await saveImageLocally(dataUrl, fileName, targetFolder);

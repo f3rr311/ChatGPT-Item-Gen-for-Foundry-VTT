@@ -21,6 +21,7 @@ import {
 } from '../utils/activity-utils.js';
 import { generateItemName, refineItemName } from './name-generator.js';
 import { validateAndEnrichItem } from '../utils/description-validator.js';
+import { validateAgainstCompendium, checkDuplicates, getCompendiumDefaults } from '../utils/compendium-utils.js';
 
 const WEAPON_KEYWORDS = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
 
@@ -166,9 +167,11 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
 
 // ---------- Core Item Document Creation ----------
 
-export async function createUniqueItemDoc(itemPrompt, config, forcedName = null, explicitType = "") {
-  showProgressBar();
-
+/**
+ * Generate item data without creating the Foundry document.
+ * Returns all the data needed to preview or create the item.
+ */
+export async function generateItemData(itemPrompt, config, forcedName = null, explicitType = "") {
   let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
 
   // Generate the item name (or use the override if provided)
@@ -412,6 +415,17 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
           damageData = { parts: [[`${def.number}d${def.denomination}`, def.type]] };
         }
         console.log("Damage filled from PHB weapon defaults:", damageData);
+      } else {
+        // Fall back to compendium lookup (for homebrew/exotic weapons not in PHB tables)
+        try {
+          const compDefaults = await getCompendiumDefaults(refinedName, "weapon");
+          if (compDefaults?.damage) {
+            damageData = compDefaults.damage;
+            console.log("Damage filled from compendium defaults:", damageData);
+          }
+        } catch (err) {
+          // Compendium fallback is optional — continue without it
+        }
       }
     }
 
@@ -736,7 +750,7 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       else armorType = "medium"; // safe default
     }
 
-    // AC: GPT explicit value > PHB defaults > generic fallback
+    // AC: GPT explicit value > PHB defaults > compendium > generic fallback
     let acValue;
     if (parsed.ac && Number(parsed.ac) > 0) {
       acValue = Number(parsed.ac);
@@ -744,7 +758,16 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
       acValue = armorHint.ac;
       console.log("AC filled from PHB armor defaults:", acValue);
     } else {
-      acValue = armorType === "shield" ? 2 : 14;
+      // Try compendium as fallback before generic default
+      let compAC = null;
+      try {
+        const compDefaults = await getCompendiumDefaults(refinedName, "equipment");
+        if (compDefaults?.armor?.value) {
+          compAC = compDefaults.armor.value;
+          console.log("AC filled from compendium defaults:", compAC);
+        }
+      } catch (err) { /* optional fallback */ }
+      acValue = compAC || (armorType === "shield" ? 2 : 14);
     }
 
     // Max DEX modifier: PHB defaults > calculated from type
@@ -1340,27 +1363,93 @@ export async function createUniqueItemDoc(itemPrompt, config, forcedName = null,
   // in structured data — adds missing Activities and Active Effects.
   await validateAndEnrichItem(newItemData, finalDesc, foundryItemType, config);
 
-  // ---------- Create the item ----------
+  // ---------- Compendium validation pass ----------
+  // Cross-reference against SRD/compendium packs and check for duplicates.
+  let compendiumWarnings = [];
+  let duplicates = [];
+  try {
+    const compResult = await validateAgainstCompendium(newItemData);
+    compendiumWarnings = compResult.warnings;
+    duplicates = await checkDuplicates(newItemData.name);
+  } catch (err) {
+    // Compendium validation is optional — don't block generation if it fails
+    console.warn("Compendium validation skipped:", err.message);
+  }
+
+  // Return all data needed to preview or create the item
+  return {
+    newItemData,
+    imagePath: imagePath || "",
+    refinedName,
+    prompt: itemPrompt,
+    config,
+    explicitType,
+    foundryItemType,
+    rarity: parsed.rarity || "common",
+    compendiumWarnings,
+    duplicates
+  };
+}
+
+/**
+ * Create a Foundry Item document from pre-generated data and record it in history.
+ * @param {object} result — the object returned by generateItemData()
+ * @returns {Item} the created Foundry Item document
+ */
+/**
+ * Find or create an Item folder by name. If parentId is given, creates as a subfolder.
+ */
+export async function getOrCreateItemFolder(name, parentId = null) {
+  const existing = game.folders.find(f => f.name === name && f.type === "Item" && (f.folder?.id ?? f.folder ?? null) === parentId);
+  if (existing) return existing.id;
+  const data = { name, type: "Item" };
+  if (parentId) data.folder = parentId;
+  const folder = await Folder.create(data);
+  return folder.id;
+}
+
+export async function createItemFromData(result, folderOverride = null) {
+  const { newItemData, imagePath, refinedName, prompt, config, explicitType, foundryItemType, rarity } = result;
+
+  // Place item in the specified folder, or default "AI Items" folder
+  try {
+    newItemData.folder = folderOverride ?? await getOrCreateItemFolder("AI Items");
+  } catch (err) {
+    console.warn("chatgpt-item-generator: Could not assign folder:", err.message);
+  }
 
   let createdItem = await Item.create(newItemData);
 
-  // Record in generation history
+  // Record in generation history (includes config + explicitType for regen support)
   if (game.chatGPTItemGenerator?.history) {
     const hist = game.chatGPTItemGenerator.history;
     hist.push({
       timestamp: Date.now(),
-      prompt: itemPrompt,
+      prompt,
       itemName: createdItem.name,
       itemType: foundryItemType,
       itemId: createdItem.id,
       imagePath: imagePath || "",
-      rarity: parsed.rarity || "common"
+      rarity: rarity || "common",
+      config,
+      explicitType: explicitType || ""
     });
     if (hist.length > 50) hist.shift();
   }
 
+  return createdItem;
+}
+
+/**
+ * Original entry point — generates item data and immediately creates the document.
+ * Used by roll table generation and any existing callers. Behavior is identical to pre-refactor.
+ */
+export async function createUniqueItemDoc(itemPrompt, config, forcedName = null, explicitType = "", folderOverride = null) {
+  showProgressBar();
+  const result = await generateItemData(itemPrompt, config, forcedName, explicitType);
+  const createdItem = await createItemFromData(result, folderOverride);
   updateProgressBar(100);
   hideProgressBar();
-  ui.notifications.info(`New D&D 5e item created: ${refinedName} (Image: ${imagePath})`);
+  ui.notifications.info(`New D&D 5e item created: ${result.refinedName} (Image: ${result.imagePath})`);
   return createdItem;
 }
