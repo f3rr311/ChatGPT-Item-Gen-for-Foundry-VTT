@@ -218,3 +218,31 @@ This project is licensed under the [MIT License](https://opensource.org/licenses
 
 </div>
 
+## 💰 Estimated API Costs
+
+All costs are estimates based on current OpenAI pricing (March 2026) using default model settings.
+
+### Single Item: ~$0.05
+
+| Call | Model | Cost |
+|------|-------|------|
+| Item JSON | gpt-4.1 | ~$0.007 |
+| Image | gpt-image-1 | ~$0.04 |
+| Name + Validation | gpt-4.1-mini | ~$0.001 |
+
+### 20-Entry Roll Table: ~$1.00
+
+| Call | Model | Cost |
+|------|-------|------|
+| Table JSON | gpt-4.1 | ~$0.02 |
+| 20× Item JSON | gpt-4.1 | ~$0.14 |
+| 20× Images | gpt-image-1 | ~$0.80 |
+| 20× Validation | gpt-4.1-mini | ~$0.01 |
+
+> [!TIP]
+>
+> **Images account for ~80% of the cost.** To reduce costs:
+> - Use **Stable Diffusion** locally for free image generation — drops a 20-entry table from ~$1.00 to ~$0.17
+> - Switch to **gpt-4.1-mini** as the primary model to reduce text costs by ~80%
+> - A typical session of 5–10 items costs roughly **$0.25–$0.50**
+
