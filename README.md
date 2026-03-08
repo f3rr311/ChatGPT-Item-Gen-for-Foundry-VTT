@@ -1,4 +1,5 @@
 <div align="center">
+<img width="1974" height="1294" alt="Screenshot" src="https://github.com/user-attachments/assets/3e6e8d3b-03ba-417e-aa4c-7ba247e088c6" />
 
 # ChatGPT Item Generator for Foundry VTT
 
@@ -219,3 +220,4 @@ For issues or feature requests, please visit the [GitHub Issues](https://github.
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
 </div>
+
