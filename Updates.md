@@ -1,0 +1,171 @@
+# Update Logs
+
+## v2.0.0 — Complete Rewrite: Modular Architecture & dnd5e v4/v5 Native Support
+
+### 🚀 New Features
+
+* **Modular Architecture:** Monolithic `script.js` fully refactored into 15 ES modules with clean separation of concerns (API, generators, utilities, UI).
+* **D&D 5e v4/v5 Activities System:**
+  * Automatically creates **Attack**, **Save**, **Damage**, **Heal**, **Utility**, and **Cast** activities on generated items.
+  * Correct damage formulas, save DCs, ability modifiers, and scaling.
+* **Active Effects Engine:**
+  * Parses item descriptions and maps bonuses to **80+ effect keys** — skills, ability scores, saves, AC, movement, resistances, damage immunities, condition immunities, senses, and more.
+  * `EFFECT_KEY_MAP` covers the full dnd5e v4 effect vocabulary.
+* **PHB Defaults Tables:**
+  * **40+ weapons** with official PHB stats (damage dice, damage type, properties, weight, cost, 2024 mastery).
+  * **18 armor types** with official AC, dex cap, strength requirement, and stealth disadvantage.
+  * Authoritative fallback when AI provides incomplete data.
+* **Two-Pass Description Validation:**
+  * **Pass 1 (Regex):** Instant scan of 10 pattern categories — weapon attack bonuses, extra damage, resistances, immunities, skill advantages, senses, speed, AC, and save bonuses.
+  * **Pass 2 (GPT):** Informed re-scan catches nuanced bonuses the regex missed.
+  * Both passes de-duplicate against existing effects and protect against armor AC double-counting.
+* **Three-Stage Type Safety Net:**
+  * **Stage 1:** Explicit UI selection (user override).
+  * **Stage 2:** GPT's `itemType` field from the generated JSON.
+  * **Stage 3:** Keyword-based safety net with Phase A (high-confidence: spell, feat, weapon) always running, and Phase B (equipment fallback: consumable, tool, loot) only when still classified as equipment.
+* **Themed Dialog UI:**
+  * New dark-themed dialog with purple accent, scoped CSS using Foundry variables.
+  * Responsive layout, proper form controls, and polished button styling.
+* **Foundry v13 Native DOM:**
+  * `renderItemDirectory` hook uses native DOM for v13, jQuery for v12 — no deprecation warnings on either version.
+
+### ✨ Improvements
+
+* **Spell Normalization:** Full normalization of school, activation cost, duration, range, target, and component fields with compendium lookup support.
+* **Weapon Damage Transforms:** Robust parsing of damage formulas, versatile damage, and generic weapon mapping (e.g., katana → longsword, cutlass → scimitar).
+* **Armor Parsing:** Longest-first matching ensures "half plate" doesn't match "plate" — correct base stats every time.
+* **Charges & Uses:** Consumables, wondrous items, and equipment automatically get charges/uses with correct recovery formulas.
+* **Castable Spell Embedding:** Items with `castableSpells` get Cast activities linked to real spell documents (searched world items, then compendiums).
+
+### 🛠 Fixes
+
+* **Feat Type Detection:** Feats no longer misclassified as consumables — dedicated `FEAT_PROMPT_BLOCK` and Phase A keyword detection.
+* **Weapon Type Detection:** Weapons with ambiguous descriptions no longer fall through to "equipment" — Phase A scans both name and description for weapon keywords.
+* **`system.type.baseItem` Path:** Fixed for dnd5e v4 — uses `system.type.baseItem` (not the v3 `system.baseItem` path).
+* **Consumable Subtype:** Potions, scrolls, ammunition, and food correctly set `system.type.value` instead of defaulting to blank.
+* **Armor AC Calculation:** Base AC pulled from PHB defaults, magical bonus added on top — no more doubled or missing AC values.
+* **Equipment Subtype Mapping:** Trinkets, cloaks, rings, and amulets correctly mapped to equipment subtypes instead of falling through.
+* **Description Cleaning:** Embedded item names in `<b>Item Name:</b>` format properly stripped from descriptions.
+* **JSON Parse Resilience:** Triple-layer fallback (native → GPT repair → regex extraction) dramatically reduces generation failures.
+
+---
+
+## v1.0.8 — Foundry V13 Ready, JSON Hardening, UX Polish
+
+### 🚀 New Features
+
+* **Foundry VTT v13 Compatibility:**
+  * Updated for Core v13+ (`game.release.generation >= 13`).
+  * Correct usage of `document` for `TableResult.type` and `collectionName` for table linking.
+  * No more deprecation warnings in v13.
+* **Improved JSON Parsing Resilience:**
+  * Triple-layer fallback: native `JSON.parse` → GPT auto-repair → regex extraction.
+
+### ✨ Improvements
+
+* **Name-in-Description Extraction:** Stronger regex handling for varied HTML formats.
+* **Accurate Progress Bar:** Step-by-step updates at 20/40/60/80/100%.
+* **Smarter Weapon Detection:** Expanded keywords — katana, scimitar, rapier, pike, quarterstaff, cutlass, sabre.
+* **Armor & Consumable Fields:** Correct `system.type.value` for consumables (v4+), proper `dexCap`, `strength`, and `ac` for armor.
+* **Stable Diffusion Polling Fix:** 60-attempt cap prevents hangs on malformed task IDs.
+* **Responsive Dialog:** Auto-height resizing, no clipping on smaller screens.
+* **Roll Table Generic Mode:** Now fully ignores item-name prompts.
+* **Refined Default Prompts:** Updated item name and roll table prompts.
+* **Code Quality:** Cleaned section headers, better comments, removed dead code.
+
+---
+
+## v1.0.7 — Prompt Customization & Progress Feedback
+
+### ✨ Improvements
+
+* **Secured Prompt Settings:** Essential JSON formatting and D&D details are now hard-coded; extra instructions remain editable via settings.
+* **Separated Fixed vs. Editable Prompts:** Fixed D&D 5e item details remain unchanged, editable extra instructions appended before the JSON formatting requirement.
+* **Improved Item Name Prompt:** Default now avoids "dragon" unless explicitly requested.
+* **Roll Table JSON Update:** Generic tables now ignore extra roll table JSON settings and use only the fixed prompt.
+* **Enhanced Progress Bar:** Granular updates at image generation, JSON generation, parsing/fixing, name refinement, and final creation.
+
+### 🛠 Fixes
+
+* **Item JSON Setting:** Corrected issue with the script not following the item JSON setting.
+
+---
+
+## v1.0.6 — Stable Diffusion, Prompt Customization, Media Optimizer
+
+### 🚀 New Features
+
+* **Stable Diffusion Integration:**
+  * Alternative to DALL-E for image generation.
+  * New settings: Enabled toggle, API Key, Endpoint, Main Prompt, Negative Prompt, Steps, CFG Scale, Sampler Name.
+  * Polls for task completion before falling back to DALL-E.
+* **ChatGPT Prompt Customization:**
+  * Configurable prompts for item names, item JSON, and DALL-E via module settings.
+  * Improved keyword forcing logic.
+* **Media Optimizer Support:** Compatibility with Media Optimizer module for file naming and conversion.
+* **Name Override:** Item names can be manually set in the dialog; leave blank for AI naming.
+
+---
+
+## v1.0.5 — API Key Refresh
+
+### 🛠 Fixes
+
+* **API Key Change:** When the OpenAI API key is changed, the session now refreshes to apply the new token immediately.
+
+---
+
+## v1.0.4 — Nested Types, Magic Detection, DALL-E 2 Fallback
+
+### ✨ Improvements
+
+* **Nested Type Handling:** Checks for nested type objects in parsed JSON; defaults to `{ value: "simpleM", baseItem: "" }` for weapons if absent.
+* **Magic Fix:** Checks for both "magical" and "magic" properties using robust string comparison.
+
+### 🛠 Fixes
+
+* **DALL-E 2 Fallback:** Falls back to DALL-E 2 if DALL-E 3 fails or is unavailable.
+
+---
+
+## v1.0.3 — Roll Tables, Weapon Mapping, Unified Dialog
+
+### 🚀 New Features
+
+* **Forced Name Override for Roll Tables:** Roll table entry text is used as the final item name.
+* **Unified Dialog Interface:** Custom dialog with dropdowns for item vs. roll table generation.
+* **Footer Button Integration:** "Generate AI" button added to Items directory footer via `renderItemDirectory` hook.
+
+### ✨ Improvements
+
+* **Enhanced Name Consistency:** Extracts item name from description if it starts with `<b>Item Name:</b>`.
+* **Refined JSON Output:** Strengthened system prompt for strictly valid JSON from roll tables.
+* **Image Prompt Update:** DALL-E now explicitly instructed to generate images without text.
+* **Expanded Weapon Keywords:** Added sabre, blade, lance, longbow, shortbow, sling, javelin, handaxe, warhammer, maul. Removed "wand".
+* **Weapon Type Mapping:** Reformatted damage data into Foundry's structure with explicit weapon classification.
+
+### 🛠 Fixes
+
+* **Local Image Storage:** Updated folder creation and checks with proper error handling.
+
+---
+
+## v1.0.2 — Local Image Storage, Roll Table Linking, Damage Formatting
+
+### 🚀 New Features
+
+* **Local AI Image Storage:** Images saved locally via Base64 encoding in `data/chatgpt-item-generator/`, persisting across module updates.
+* **Roll Table Linking:** Item-mode roll tables automatically create and link unique item documents per entry.
+* **Unified Dialog Interface:** Dropdowns for items, item roll tables, and generic roll tables.
+
+### ✨ Improvements
+
+* **Improved Generic Roll Table Prompt:** Requires exactly 20 tailored entries with context-specific details.
+* **Weapon Damage Formatting:** Converts damage strings into structured damage objects with default damage types.
+* **General Stability:** Various fixes to JSON parsing and name/description consistency.
+
+---
+
+## v1.0.1 — Initial Release
+
+* Testing release — first public version of ChatGPT Item Generator for Foundry VTT.

@@ -2,7 +2,7 @@
     "id": "chatgpt-item-generator",
     "title": "ChatGPT Item Generator",
     "description": "Generates AI-powered D&D 5e items with descriptions, effects, and images. Also can make Roll Tables from AI.",
-    "version": "1.0.8",
+    "version": "2.0.0",
     "authors": [
         {
             "name": "Byte_Smarter",
@@ -12,8 +12,8 @@
     ],
     "compatibility": {
         "minimum": "12.331",
-        "verified": "13.350",
-        "maximum": "13.350"
+        "verified": "13.351",
+        "maximum": "13.351"
     },
     "relationships": {
         "systems": [
@@ -22,14 +22,14 @@
                 "type": "system",
                 "compatibility": {
                     "minimum": "3.3.1",
-                    "verified": "3.3.1",
+                    "verified": "4.1.2",
                     "maximum": "5.1.x"
                 }
             }
         ]
     },
     "manifest": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/latest/download/module.json",
-    "download": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/download/1.0.7/ChatGPT-Item-Gen-for-Foundry-VTT.zip",
+    "download": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/download/2.0.0/ChatGPT-Item-Gen-for-Foundry-VTT.zip",
     "readme": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/blob/main/README.md",
     "changelog": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases",
     "license": "https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/blob/main/LICENSE",
@@ -44,7 +44,7 @@
         }
     ],
     "esmodules": [
-        "script.js"
+        "scripts/main.js"
     ],
     "flags": {
         "hotReload": {

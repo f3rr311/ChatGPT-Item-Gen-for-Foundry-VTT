@@ -1,5 +1,12 @@
 
-/* ChatGPT Item Generator Styles */
+/* ==========================================================================
+   ChatGPT Item Generator — Styles
+   Theme-aware: uses Foundry CSS variables with dark fallbacks for v12.
+   All dialog rules scoped under .chatgpt-dialog to avoid bleeding.
+   ========================================================================== */
+
+/* ---------- Sidebar Button ---------- */
+
 .chatgpt-generate-item {
     background-color: #282c34;
     color: white;
@@ -12,4 +19,185 @@
 
 .chatgpt-generate-item:hover {
     background-color: #3c4049;
+}
+
+/* ---------- Dialog Window ---------- */
+
+.chatgpt-dialog .window-content {
+    padding: 0;
+    background: var(--color-bg-option, #1e1e1e);
+}
+
+/* ---------- Form Layout ---------- */
+
+.chatgpt-dialog .chatgpt-gen-form {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 4px;
+}
+
+.chatgpt-dialog .chatgpt-gen-form form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chatgpt-dialog .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+}
+
+/* ---------- Header Banner ---------- */
+
+.chatgpt-dialog .chatgpt-dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-left: 3px solid #7c5cfc;
+    border-radius: 2px;
+    background: var(--color-bg-btn, rgba(124, 92, 252, 0.08));
+    color: var(--color-text-light-highlight, #e0e0e0);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.chatgpt-dialog .chatgpt-dialog-header i {
+    color: #7c5cfc;
+    font-size: 1rem;
+}
+
+/* ---------- Labels ---------- */
+
+.chatgpt-dialog .form-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--color-text-light-highlight, #b0b0b0);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ---------- Inputs, Selects, Textarea ---------- */
+
+.chatgpt-dialog .form-group select,
+.chatgpt-dialog .form-group input[type="text"],
+.chatgpt-dialog .form-group input[type="number"],
+.chatgpt-dialog .form-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border-light-tertiary, #444);
+    border-radius: 4px;
+    background: var(--color-bg-option, #2a2a2a);
+    color: var(--color-text-primary, #ddd);
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.chatgpt-dialog .form-group select:focus,
+.chatgpt-dialog .form-group input[type="text"]:focus,
+.chatgpt-dialog .form-group input[type="number"]:focus,
+.chatgpt-dialog .form-group textarea:focus {
+    outline: none;
+    border-color: #7c5cfc;
+    box-shadow: 0 0 0 2px rgba(124, 92, 252, 0.25);
+}
+
+.chatgpt-dialog .form-group select:hover,
+.chatgpt-dialog .form-group input[type="text"]:hover,
+.chatgpt-dialog .form-group input[type="number"]:hover,
+.chatgpt-dialog .form-group textarea:hover {
+    border-color: var(--color-border-highlight, #666);
+}
+
+/* Textarea specifics */
+.chatgpt-dialog .form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.4;
+}
+
+/* Placeholder text */
+.chatgpt-dialog .form-group textarea::placeholder,
+.chatgpt-dialog .form-group input::placeholder {
+    color: var(--color-text-dark-secondary, #777);
+    font-style: italic;
+}
+
+/* Number input — hide spinner on hover, keep on focus */
+.chatgpt-dialog .form-group input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* ---------- Dialog Buttons ---------- */
+
+.chatgpt-dialog .dialog-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-border-light-tertiary, #333);
+    background: var(--color-bg-option, #1a1a1a);
+}
+
+.chatgpt-dialog .dialog-button {
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Generate button — primary accent */
+.chatgpt-dialog .dialog-button.default {
+    background: #7c5cfc;
+    color: #fff;
+    border: 1px solid #7c5cfc;
+    text-shadow: none;
+}
+
+.chatgpt-dialog .dialog-button.default:hover {
+    background: #6a4ae8;
+    border-color: #6a4ae8;
+    box-shadow: 0 2px 10px rgba(124, 92, 252, 0.35);
+}
+
+.chatgpt-dialog .dialog-button.default:active {
+    background: #5a3ad8;
+    box-shadow: 0 1px 4px rgba(124, 92, 252, 0.3);
+}
+
+/* Cancel button — subtle */
+.chatgpt-dialog .dialog-button:not(.default) {
+    background: transparent;
+    color: var(--color-text-light-highlight, #aaa);
+    border: 1px solid var(--color-border-light-tertiary, #444);
+    text-shadow: none;
+}
+
+.chatgpt-dialog .dialog-button:not(.default):hover {
+    background: var(--color-bg-btn, rgba(255, 255, 255, 0.06));
+    border-color: var(--color-border-highlight, #666);
+    color: var(--color-text-primary, #ddd);
+}
+
+/* ---------- Window Title Bar ---------- */
+
+.chatgpt-dialog .window-header {
+    background: var(--color-bg-option, #181818);
+    border-bottom: 1px solid var(--color-border-light-tertiary, #333);
+}
+
+.chatgpt-dialog .window-header .window-title {
+    color: var(--color-text-light-highlight, #e0e0e0);
 }

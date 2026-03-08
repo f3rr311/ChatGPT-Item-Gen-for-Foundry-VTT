@@ -1,114 +1,216 @@
+<div align="center">
+
 # ChatGPT Item Generator for Foundry VTT
 
-![image](https://github.com/user-attachments/assets/6b890c07-544d-42b1-829a-4f93b0a73827)
+![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
+[![Version](https://img.shields.io/badge/Version-2.0.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
-## Overview
-This module leverages **ChatGPT**, **DALL·E 3**, and **Stable Diffusion** to dynamically create **D&D 5e items** within Foundry VTT. Simply provide an item type (such as weapon, armor, or potion) along with a brief description, and the module will:
+<br>
 
-- **Generate a concise, thematic item name and description** using ChatGPT.
-- **Produce a comprehensive description** complete with structured D&D 5e stats, including rarity, magical properties, weapon details, armor specifications, and damage calculations.
-- **Create and locally store an AI-generated image** using Base64 encoding, ensuring the image remains available even after module updates.
-- **Build roll tables** with customized entries that incorporate additional context (like city, biome, or theme details) while simultaneously generating linked items.
+**Generate complete, game-ready D&D 5e items with AI — weapons, armor, spells, feats, potions, and more.**
 
-## Features
+<br>
 
-### AI Integration with ChatGPT, DALL·E, and Stable Diffusion
-- **API Key Setup:** Obtain your API keys at [OpenAI API Keys](https://platform.openai.com/api-keys). Stable Diffusion access is also configurable.
-- **Structured JSON Generation:** Uses ChatGPT (via GPT-4) to produce structured JSON for both D&D 5e items and roll tables.
-- **On-Demand Image Generation:**  
-  - **DALL‑E Integration:** Utilizes DALL‑E 3 (with fallback to DALL‑E 2) for creating item images on the fly.
-  - **Stable Diffusion Integration:** Optionally uses Stable Diffusion for image generation. The module polls for task completion before retrieving the image.
-- **Media Optimizer Support:** Ensures that generated images are compatible with the Media Optimizer module by preserving file naming and conversion behavior.
-- **Exposed Promts:** Prompts are now exposed in the Modules settings to allow for further custimzation. (GPT, DALL-E and Stable Diffusion)
+<a href="#-features"><img src="https://img.shields.io/badge/%20-Features-black?style=for-the-badge" alt="Features"></a> <a href="#-installation"><img src="https://img.shields.io/badge/%20-Installation-black?style=for-the-badge" alt="Installation"></a> <a href="#-how-to-use"><img src="https://img.shields.io/badge/%20-How_to_Use-black?style=for-the-badge" alt="How to Use"></a> <a href="Updates.md"><img src="https://img.shields.io/badge/%20-Update_Logs-black?style=for-the-badge" alt="Updates"></a>
 
-### Robust JSON Handling
-- **Error Correction:** Employs multiple strategies to sanitize and fix invalid JSON, including using the OpenAI API for corrections.
-- **Compliance:** Ensures that the generated JSON adheres to Foundry’s expected structure for items and roll tables.
+</div>
 
-### Item Generation Capabilities
-- **Automatic Mapping:** Seamlessly maps generated JSON fields (description, rarity, weight, price, attunement, etc.) to the corresponding Foundry 5e item sheet fields.
-- **Weapon Data Processing:**
-  - Converts raw damage data (e.g., `"dice": "1d6"` with modifiers) into Foundry’s structured damage format.
-  - Applies default damage types and enforces weapon properties within the item’s properties array.
-- **Name Extraction & Refinement:**  
-  - Extracts the item name from the description if embedded.
-  - Supports name override via the dialog (which now takes precedence over auto-generation).
+<br>
+
+> [!NOTE]
+>
+> ### 🆕 What's New in v2.0
+>
+> Version 2.0 is a **complete rewrite** — the monolithic codebase has been rebuilt from the ground up into 15 modular ES modules. Here's what's new:
+>
+> - **D&D 5e v4/v5 Activities** — Attack, Save, Damage, Heal, Utility, and Cast activities auto-generated on items
+> - **Active Effects** — 80+ effect keys mapped from item descriptions (skills, saves, AC, resistances, immunities, senses, and more)
+> - **PHB Defaults** — 40+ weapons and 18 armor types with official Player's Handbook stats as authoritative fallbacks
+> - **Two-Pass Description Validation** — Regex scan + GPT-informed scan extracts every mechanical bonus into proper effects
+> - **Three-Stage Type Safety Net** — Items are always classified correctly, even when the AI gets it wrong
+> - **GPT-4.1 & GPT Image 1** — Latest OpenAI models supported out of the box
+> - **Castable Spell Embedding** — Items with spells get Cast activities linked to real spell documents
+> - **New Item Types** — Container and Background support added
+> - **Themed Dialog UI** — Dark-themed generator dialog with polished styling
+> - **Foundry v13 Native** — Full native DOM support, zero deprecation warnings
+>
+> See the [Update Logs](Updates.md) for the full changelog.
+
+> [!IMPORTANT]
+>
+> ### Requirements
+>
+> - **System:** D&D 5e only (`dnd5e` v3.3.1 – v5.1.x)
+> - **Foundry VTT:** v12.331 – v13.351
+> - **API Key:** An [OpenAI API key](https://platform.openai.com/api-keys) is required for item generation and image creation.
+
+<br>
+
+---
+
+<br>
+
+## 🚀 Features
+
+### AI-Powered Item Creation
+- **One-Click Generation:** Describe what you want — the module creates a fully populated item sheet with name, description, stats, image, and all dnd5e data fields.
+- **All Item Types:** Weapons, armor, shields, spells, feats, consumables (potions, scrolls, ammunition), tools, loot, containers, and backgrounds.
+- 🆕 **Smart Type Detection:** A three-stage safety net ensures items are always classified correctly, even when the AI gets it wrong.
+
+### 🆕 D&D 5e v4/v5 Native Support
+- 🆕 **Activities System:** Automatically creates Attack, Save, Damage, Heal, Utility, and Cast activities with correct formulas, save DCs, and damage parts.
+- 🆕 **Active Effects:** Parses item descriptions and maps bonuses to 80+ effect keys — skills, saves, AC, movement, resistances, immunities, senses, and more.
+- 🆕 **PHB Defaults:** Built-in lookup tables for 40+ weapons and 18 armor types ensure stats match the Player's Handbook exactly (damage dice, properties, AC, weight, cost, mastery).
+- 🆕 **Two-Pass Description Validation:** First a regex scan, then a GPT-informed scan extracts every mechanical bonus from descriptions and converts them into proper Active Effects — with de-duplication and armor AC double-count protection.
+- 🆕 **Castable Spell Embedding:** Items with spell-casting abilities get Cast activities linked to real spell documents from your world or compendiums.
+
+### Image Generation
+- 🆕 **GPT Image 1:** Default image model — generates high-quality item artwork with automatic local storage (PNG, WebP, or JPEG).
+- **DALL-E 3 / DALL-E 2:** Legacy support available but deprecated — will stop working after May 12, 2026.
+- **Stable Diffusion:** Optional local image generation via Stable Diffusion API with polling and timeout handling.
+- **Media Optimizer:** Compatible with the Media Optimizer module for image optimization.
 
 ### Roll Table Generation
-- **Valid JSON Output:** Generates strictly valid JSON for roll tables, ensuring a consistent number of entries.
-- **Dual Modes:**  
-  - **Generic Roll Tables:** Customizable entries based on thematic or location-based prompts.
-  - **Item Roll Tables:** Automatically creates items for each roll table entry, using the entry text as the item name.
+- **Item Tables:** Creates a roll table where every entry is a fully generated item document with its own image, stats, and effects.
+- **Generic Tables:** Produces thematic text-only tables (e.g., random encounters, loot descriptions, rumors).
+- **Configurable Entry Count:** Choose how many entries to generate per table.
 
-### User Interface Enhancements
-- **Unified Dialog Interface:**  
-  - Custom dialog with dropdown menus for selecting between item and roll table generation.
-  - Contextual dropdown for explicit item type selection (e.g., Weapon, Armor, Consumable).
-  - Separate dropdown for roll table mode (Items vs. Generic) when generating a roll table.
-  - Editable fields for API keys, prompts (for ChatGPT and DALL‑E), and Stable Diffusion settings, complete with human-readable labels and disclaimers.
-- **Progress Bar:** Includes a visual progress bar overlay during AI generation to indicate processing status.
-- **Footer Button Integration:** Adds a "Generate AI (Item or RollTable)" button to the Items directory footer, visible only to Game Masters.
+### 🆕 Robust Architecture
+- 🆕 **15 Modular ES Modules:** Clean separation of concerns — API, generators, utilities, and UI.
+- **Triple-Layer JSON Parsing:** Native parse → GPT auto-repair → regex extraction. Dramatically reduces generation failures.
+- 🆕 **Foundry v12 + v13:** Full compatibility with both major Foundry versions — jQuery for v12, native DOM for v13, no deprecation warnings.
+- **Customizable Prompts:** All GPT, DALL-E, and Stable Diffusion prompts are exposed in module settings.
 
-### Damage Mapping and Weapon Classification
-- **Accurate Formatting:** Refines the damage mapping logic to convert ChatGPT’s raw damage data into the format required by Foundry.
-- **Weapon Classification:** Features explicit weapon type mapping and classification to better support weapon items.
+<br>
 
-### Local Image Storage
-- **Directory Management:** Creates and verifies designated folders within the Foundry data directory.
-- **Persistent Storage:** Saves AI-generated images using Base64 encoding with robust error handling and media optimizer compatibility.
+---
 
-## Setup & Usage
+<br>
 
-1. **Install** the module via Foundry VTT’s Module Management.
-2. **Enable** the module in your world via `Game Settings > Manage Modules`.
-3. **Configure** your API keys and prompt settings in `Game Settings > Configure Settings > ChatGPT Item Generator`. Adjust Stable Diffusion and Media Optimizer settings as needed.
-4. **Access** the Items tab (in Foundry v12, the "Generate AI (Item or RollTable)" button is integrated into the Items directory footer, visible only to GMs).
-5. **Click** the button to open the dialog, then choose whether to generate an item or a roll table.
-   - For roll tables:
-     - Select "Items" mode to automatically create and link generated item documents.
-     - Select "Generic" mode to produce a custom table with 20 descriptive entries.
-6. **Enjoy** your dynamically generated content!
+## 📦 Installation
 
-## Troubleshooting & FAQ
-- **Common Issues:**
-  - **API Key Errors:** Verify that your API keys are correctly entered in the module settings.
-  - **Image Saving Failures:** Ensure the module folder (`data/chatgpt-item-generator/`) has the necessary write permissions.
-  - **JSON Formatting Problems:** If the output JSON is invalid, try re-running the prompt or check the OpenAI API response.
-- **General FAQs:**  
-  Refer to the [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues) page for community-driven solutions and additional support.
+1. Open **Foundry VTT** and go to the **Add-on Modules** tab.
+2. Click **Install Module**.
+3. Paste the following **Manifest URL**:
+   ```text
+   https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/latest/download/module.json
+   ```
+4. Click **Install**.
+5. Enable the module in your world via **Game Settings > Manage Modules**.
+6. Configure your **OpenAI API Key** in **Game Settings > Configure Settings > ChatGPT Item Generator**.
 
-## Example Prompts
-- **Item Prompt:**  
-  "Generate a mystical sword with an enchanted blade that glows in the dark."
-- **Roll Table Prompt:**  
-  "Create a generic roll table for a haunted village with eerie, atmospheric entries."
+<br>
 
-## Future Roadmap
-- **Planned Features:**
-  - Enhanced UI customization for easier item editing.
-  - Support for additional game systems beyond D&D 5e.
-  - More robust error handling and logging for AI generation failures.
-- **Community Contributions:**  
-  Feedback and contributions are welcome to help shape future versions of the module.
+---
 
-## Contribution Guidelines
-- **How to Contribute:**  
-  Interested in contributing? Please follow our [GitHub Contribution Guidelines](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues).
+<br>
 
-## Additional Notes
-- **Local Image Storage:**  
-  Images are saved in the module folder at `data/chatgpt-item-generator/`. Ensure you have the necessary file write permissions.
-- **Roll Table Generation:**  
-  The module requires GPT to generate exactly 20 entries for generic roll tables. If the table appears empty, try rerunning the prompt with more specific details.
-- **Damage Calculations:**  
-  For weapons, any provided damage string (e.g., "1d8") is automatically converted into a structured damage object that aligns with D&D 5e system requirements.
-- **Media Optimizer Compatibility:**  
-  Generated images are processed to be compatible with the Media Optimizer module, ensuring they are optimized for web delivery.
-- **Stable Diffusion Settings:**  
-  You will need to add the following to your webui-user.bat/sh file: `set COMMANDLINE_ARGS=--cors-allow-origins="*" --api` and `set API_KEY=yourkey`
+## 📖 How to Use
 
-## Support
-For issues or feature requests, please visit [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues).
+### 1. Open the Generator
+Navigate to the **Items** tab in the sidebar. Click the **"Generate AI (Item or RollTable)"** button in the directory footer (GM only).
 
-## License
+### 2. Choose What to Generate
+- **Item** — Generate a single item with full stats, effects, and image.
+- **Roll Table** — Generate a table of multiple items or generic entries.
+
+### 3. Configure Options
+- **Type Selection:** Auto-detect (let the AI decide) or explicitly choose: Weapon, Armor, Equipment, Consumable, Tool, Loot, Spell, Feat, Container, or Background.
+- **Name Override:** Optionally provide a specific name, or leave blank for AI naming.
+- **Entry Count:** For roll tables, set how many entries to generate.
+
+### 4. Describe Your Item
+Enter a prompt like:
+- *"A cursed greatsword that drains the wielder's health on each hit"*
+- *"+2 mithral half plate with fire resistance"*
+- *"A 3rd-level necromancy spell that raises undead servants"*
+- *"Random magical dungeon loot — mix of weapons, armor, and potions"*
+
+### 5. Generate
+Click **Generate** and wait for the progress bar to complete. The item appears in your Items directory ready to drag onto character sheets.
+
+<br>
+
+---
+
+<br>
+
+## 🛠 Supported Item Types
+
+| Type | What Gets Generated |
+|------|-------------------|
+| **Weapon** | Damage dice, properties (versatile, finesse, etc.), attack + damage activities, magical bonus, PHB base stats, 2024 mastery |
+| **Armor / Shield** | AC calculation, armor type, dex cap, strength requirement, stealth disadvantage, PHB defaults |
+| **Equipment** | Clothing, trinkets, rings, amulets, cloaks — with passive effects, charges, and castable spells |
+| **Spell** | Level, school, components, range, duration, casting time, save/attack activities, scaling |
+| **Feat** | Feat type, prerequisites, passive effects, granted activities |
+| **Consumable** | Potion/scroll/ammo/food subtypes, uses, charges, healing or buff effects |
+| **Tool** | Tool type, proficiency, ability check bonuses |
+| **Loot** | Gems, art objects, trade goods — with passive effects and charges |
+| **Container** | Bags, chests, and other storage items |
+| **Background** | Character backgrounds with features and proficiencies |
+
+<br>
+
+---
+
+<br>
+
+## ⚙️ Settings
+
+All settings are found in **Game Settings > Configure Settings > ChatGPT Item Generator**.
+
+| Setting | Description |
+|---------|-------------|
+| **OpenAI API Key** | Your OpenAI API key for text generation (required) |
+| **DALL-E API Key** | Your OpenAI API key for image generation (can be the same key) |
+| **Primary Model** | GPT model for item/table JSON generation (default: `gpt-4.1`) — also supports 4.1 Mini, 4.1 Nano, 4o, 4o Mini, GPT-4 |
+| **Light Model** | Faster model for names, JSON fixes, and property extraction (default: `gpt-4.1-mini`) |
+| **Image Model** | `gpt-image-1` (recommended), `dall-e-3`, or `dall-e-2` (DALL-E deprecated May 2026) |
+| **Image Format** | PNG (lossless), WebP (smaller), or JPEG (smallest) |
+| **Stable Diffusion** | Toggle, API key, endpoint, prompt, negative prompt, steps, CFG scale, sampler |
+| **Custom Prompts** | Editable prompts for item JSON, item names, roll tables, image generation, and Stable Diffusion |
+
+<br>
+
+---
+
+<br>
+
+## 🔧 Troubleshooting
+
+- **"API Key is not set"** — Add your OpenAI API key in module settings.
+- **Image not saving** — Ensure `data/chatgpt-item-generator/` folder exists and has write permissions. The module creates it automatically, but server permissions may block this.
+- **Wrong item type** — Try using explicit type selection instead of auto-detect for tricky items.
+- **JSON parse errors** — The triple-layer parser handles most issues automatically. If it persists, try simplifying your prompt.
+- **Stable Diffusion not connecting** — Add to your `webui-user.bat`: `set COMMANDLINE_ARGS=--cors-allow-origins="*" --api`
+
+<br>
+
+---
+
+<br>
+
+## 🗺 Roadmap
+
+- Safety net coverage for roll table items
+- Enhanced UI with live item preview
+- Community contributions welcome — feedback and ideas are appreciated
+
+<br>
+
+---
+
+<br>
+
+<div align="center">
+
+### Support
+
+For issues or feature requests, please visit the [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues) page.
+
+**Author:** [Byte_Smarter](https://github.com/f3rr311) · **Discord:** Byte_smarter
+
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+
+</div>
