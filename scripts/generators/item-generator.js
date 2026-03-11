@@ -19,7 +19,7 @@ import {
   buildHealActivity, buildUtilityActivity, buildCastActivity,
   buildDamagePart, buildActiveEffect, mapEffectChange, durationToSeconds
 } from '../utils/activity-utils.js';
-import { generateItemName, refineItemName } from './name-generator.js';
+import { generateItemName, ensureItemName } from './name-generator.js';
 import { validateAndEnrichItem } from '../utils/description-validator.js';
 import { validateAgainstCompendium, checkDuplicates, getCompendiumDefaults } from '../utils/compendium-utils.js';
 
@@ -214,7 +214,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Refine the item name based on the description if no override was provided
   let refinedName = (forcedName && forcedName.trim().length > 0)
     ? forcedName
-    : await refineItemName(generatedName, finalDesc, config);
+    : await ensureItemName(generatedName, finalDesc, config);
   updateProgressBar(80);
 
   // ---------- Determine the Foundry item type ----------

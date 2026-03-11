@@ -3,6 +3,8 @@
  * Uses native DOM (no jQuery) for v12+v13 compatibility.
  */
 
+import { MODULE_ID } from '../settings.js';
+
 // OpenAI pricing per 1M tokens (USD) — updated March 2026
 const MODEL_PRICING = {
   "gpt-4.1":       { input: 2.00, output: 8.00 },
@@ -23,7 +25,6 @@ const IMAGE_PRICING = {
  */
 export function estimateCost(costObj) {
   if (!costObj) return 0;
-  const MODULE_ID = "chatgpt-item-generator";
   const chatModel = game.settings.get(MODULE_ID, "chatModel") || "gpt-4.1";
   const lightModel = game.settings.get(MODULE_ID, "lightModel") || "gpt-4.1-mini";
   const imageModel = game.settings.get(MODULE_ID, "imageModel") || "gpt-image-1";

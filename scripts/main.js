@@ -3,15 +3,13 @@
  * Registers settings, builds config, hooks into Foundry, and provides the generate dialog.
  */
 
-import { registerSettings } from './settings.js';
+import { registerSettings, MODULE_ID } from './settings.js';
 import { generateItemData, parseItemJSON } from './generators/item-generator.js';
 import { createFoundryRollTableFromDialog } from './generators/table-generator.js';
 import { openPreviewDialog } from './ui/preview-dialog.js';
 import { showProgressBar, hideProgressBar, estimateCost } from './utils/ui-utils.js';
-import { generateItemName, refineItemName } from './generators/name-generator.js';
+import { generateItemName, ensureItemName } from './generators/name-generator.js';
 import { generateItemImage, generateItemJSON } from './api/openai.js';
-
-const MODULE_ID = "chatgpt-item-generator";
 
 // ---------- Prompt Templates ----------
 
@@ -162,7 +160,7 @@ function openHistoryDialog() {
           try {
             if (action === "name") {
               const newName = await generateItemName(combined, config);
-              const refined = await refineItemName(newName, item.system.description.value, config);
+              const refined = await ensureItemName(newName, item.system.description.value, config);
               await item.update({ name: refined });
               h.itemName = refined;
               ui.notifications.info(`Name updated: ${refined}`);
@@ -425,7 +423,8 @@ Hooks.once("ready", () => {
     );
   }
 
-  console.log("ChatGPT Item Generator v2.1.0 loaded");
+  const moduleVersion = game.modules.get(MODULE_ID)?.version ?? "unknown";
+  console.log(`ChatGPT Item Generator v${moduleVersion} loaded`);
 });
 
 Hooks.on("renderItemDirectory", (app, html, data) => {

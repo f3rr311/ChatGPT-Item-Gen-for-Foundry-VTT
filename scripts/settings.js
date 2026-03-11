@@ -2,7 +2,7 @@
  * Module settings registration for ChatGPT Item Generator.
  */
 
-const MODULE_ID = "chatgpt-item-generator";
+export const MODULE_ID = "chatgpt-item-generator";
 
 export function registerSettings() {
   // OpenAI & DALL-E API Keys

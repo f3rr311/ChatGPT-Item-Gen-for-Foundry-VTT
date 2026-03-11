@@ -4,6 +4,7 @@
 
 import { ensureFolder, saveImageLocally } from '../utils/file-utils.js';
 import { generateSDImage } from './stable-diffusion.js';
+import { MODULE_ID } from '../settings.js';
 
 const CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
@@ -181,7 +182,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
       break;
   }
 
-  const extraPrompt = game.settings.get("chatgpt-item-generator", "chatgptJSONPrompt");
+  const extraPrompt = game.settings.get(MODULE_ID, "chatgptJSONPrompt");
   const fixedJSONInstructions = "Output valid JSON with double-quoted property names and no extra text.";
   const jsonPrompt = extraPrompt + " " + COMMON_PROMPT_BASE + " " + typePrompt + " " + fixedJSONInstructions + typeNote;
 
@@ -195,7 +196,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
 export async function generateItemName(prompt, config) {
   if (!config.apiKey) return "Unnamed";
   const fixedNamePrompt = "Generate a creative, evocative fantasy item name. Use vivid or poetic language — names like 'Frostbite\\'s Lament', 'The Ashen Verdict', or 'Whisperwind Blade' rather than plain names like 'Fire Staff' or 'Magic Sword'. Even for well-known items, invent a unique name. Output only the name in plain text, no JSON.";
-  const extraNamePrompt = game.settings.get("chatgpt-item-generator", "chatgptNamePrompt");
+  const extraNamePrompt = game.settings.get(MODULE_ID, "chatgptNamePrompt");
   const namePrompt = extraNamePrompt + " " + fixedNamePrompt;
 
   return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, namePrompt, prompt, 20);
@@ -203,7 +204,7 @@ export async function generateItemName(prompt, config) {
 
 // ---------- Item Name Refinement ----------
 
-export async function refineItemName(currentName, description, config) {
+export async function ensureItemName(currentName, description, config) {
   if (currentName && currentName.trim().length > 0) return currentName;
   const prompt = `The current item name is: "${currentName}".
 The item description is: "${description}".
@@ -221,7 +222,7 @@ Please provide a refined, improved item name that better reflects the details an
 export async function gptFixMismatch(expectedName, foundType, itemName, rawJSON, config) {
   if (!config.apiKey) return rawJSON;
   const fixedMismatchPrompt = "You are a Foundry VTT assistant. The item name or prompt indicates it is a " + expectedName + ", but the JSON indicates it is a " + foundType + ". Fix the JSON so that the item is consistent as a " + expectedName + ". ";
-  const extraMismatchPrompt = game.settings.get("chatgpt-item-generator", "chatgptFixMismatchPrompt");
+  const extraMismatchPrompt = game.settings.get(MODULE_ID, "chatgptFixMismatchPrompt");
   const systemMessage = fixedMismatchPrompt + extraMismatchPrompt + "Output only valid JSON.";
 
   return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, systemMessage, rawJSON, 900, true) || rawJSON;
@@ -339,7 +340,7 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
   let rollTableJSONPrompt = basePrompt + typePrompt;
 
   if (!isGeneric) {
-    const extraRollTablePrompt = game.settings.get("chatgpt-item-generator", "chatgptRollTablePrompt");
+    const extraRollTablePrompt = game.settings.get(MODULE_ID, "chatgptRollTablePrompt");
     rollTableJSONPrompt += extraRollTablePrompt;
   }
 
@@ -352,7 +353,7 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
 
 export async function generateItemImage(prompt, config) {
   // Check if Stable Diffusion is enabled
-  const useSD = game.settings.get("chatgpt-item-generator", "stableDiffusionEnabled");
+  const useSD = game.settings.get(MODULE_ID, "stableDiffusionEnabled");
   if (useSD) {
     try {
       const imagePath = await generateSDImage(prompt, config);
@@ -367,7 +368,7 @@ export async function generateItemImage(prompt, config) {
   // OpenAI image generation
   if (!config.dalleApiKey) return "";
 
-  const dallePrompt = game.settings.get("chatgpt-item-generator", "dallePrompt");
+  const dallePrompt = game.settings.get(MODULE_ID, "dallePrompt");
   const imageModel = config.imageModel;
   const imageFormat = config.imageFormat || "png";
 

@@ -3,7 +3,7 @@
  * Allows editing name/description, regenerating individual parts, and "Try Again".
  */
 
-import { generateItemName, refineItemName } from '../generators/name-generator.js';
+import { generateItemName, ensureItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON } from '../api/openai.js';
 import { generateItemData, createItemFromData, parseItemJSON } from '../generators/item-generator.js';
 import { showProgressBar, hideProgressBar } from '../utils/ui-utils.js';
@@ -260,7 +260,7 @@ export function openPreviewDialog(result) {
                 const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
                 const newName = await generateItemName(combined, currentResult.config);
                 const desc = currentResult.newItemData.system.description.value;
-                const refined = await refineItemName(newName, desc, currentResult.config);
+                const refined = await ensureItemName(newName, desc, currentResult.config);
                 root.querySelector("#preview-name").value = refined;
               } catch (err) {
                 console.error("Name regeneration failed:", err);

@@ -2,7 +2,7 @@
  * Item name generation, keyword forcing, and refinement.
  */
 
-import { generateItemName as apiGenerateItemName, refineItemName as apiRefineItemName } from '../api/openai.js';
+import { generateItemName as apiGenerateItemName, ensureItemName as apiEnsureItemName } from '../api/openai.js';
 
 const KEYWORDS = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
 
@@ -40,6 +40,6 @@ export async function generateItemName(prompt, config) {
   return forceKeywordInName(name, prompt, "");
 }
 
-export async function refineItemName(currentName, description, config) {
-  return await apiRefineItemName(currentName, description, config);
+export async function ensureItemName(currentName, description, config) {
+  return await apiEnsureItemName(currentName, description, config);
 }

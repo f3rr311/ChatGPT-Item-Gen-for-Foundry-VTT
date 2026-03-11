@@ -3,15 +3,16 @@
  */
 
 import { ensureFolder, saveImageLocally } from '../utils/file-utils.js';
+import { MODULE_ID } from '../settings.js';
 
 export async function generateSDImage(prompt, config) {
-  const sdAPIKey = game.settings.get("chatgpt-item-generator", "stableDiffusionAPIKey");
-  const sdEndpoint = game.settings.get("chatgpt-item-generator", "stableDiffusionEndpoint");
-  const sdMainPrompt = game.settings.get("chatgpt-item-generator", "sdMainPrompt");
-  const sdNegativePrompt = game.settings.get("chatgpt-item-generator", "sdNegativePrompt");
-  const sdSteps = game.settings.get("chatgpt-item-generator", "sdSteps");
-  const sdCfgScale = game.settings.get("chatgpt-item-generator", "sdCfgScale");
-  const sdSamplerName = game.settings.get("chatgpt-item-generator", "sdSamplerName");
+  const sdAPIKey = game.settings.get(MODULE_ID, "stableDiffusionAPIKey");
+  const sdEndpoint = game.settings.get(MODULE_ID, "stableDiffusionEndpoint");
+  const sdMainPrompt = game.settings.get(MODULE_ID, "sdMainPrompt");
+  const sdNegativePrompt = game.settings.get(MODULE_ID, "sdNegativePrompt");
+  const sdSteps = game.settings.get(MODULE_ID, "sdSteps");
+  const sdCfgScale = game.settings.get(MODULE_ID, "sdCfgScale");
+  const sdSamplerName = game.settings.get(MODULE_ID, "sdSamplerName");
 
   const payload = {
     prompt: sdMainPrompt.replace("{prompt}", prompt),
