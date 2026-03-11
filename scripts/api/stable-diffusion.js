@@ -46,6 +46,13 @@ export async function generateSDImage(prompt, config) {
     },
     body: JSON.stringify(payload)
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error(`Stable Diffusion API error ${response.status}: ${errorBody}`);
+    return null;
+  }
+
   const data = await response.json();
 
   let imageBase64 = null;

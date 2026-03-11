@@ -31,6 +31,13 @@ async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens
     },
     body: JSON.stringify(body)
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error(`OpenAI chat API error ${response.status}: ${errorBody}`);
+    return null;
+  }
+
   const data = await response.json();
 
   // Accumulate token usage for session + current item cost tracking
@@ -366,7 +373,7 @@ export async function generateItemImage(prompt, config) {
   }
 
   // OpenAI image generation
-  if (!config.dalleApiKey) return "";
+  if (!config.dalleApiKey) return null;
 
   const dallePrompt = game.settings.get(MODULE_ID, "dallePrompt");
   const imageModel = config.imageModel;
@@ -396,11 +403,18 @@ export async function generateItemImage(prompt, config) {
     },
     body: JSON.stringify(requestBody)
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error(`OpenAI image API error ${response.status}: ${errorBody}`);
+    return null;
+  }
+
   const data = await response.json();
 
   if (data.error) {
     console.error("Image generation error:", data.error);
-    return "";
+    return null;
   }
 
   if (data.data && data.data[0]?.b64_json) {
@@ -431,5 +445,5 @@ export async function generateItemImage(prompt, config) {
     return await saveImageLocally(dataUrl, fileName, targetFolder);
   }
 
-  return "";
+  return null;
 }
