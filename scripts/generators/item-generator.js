@@ -743,7 +743,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
             damageData = compDefaults.damage;
           }
         } catch (err) {
-          // Compendium fallback is optional — continue without it
+          console.debug("Compendium weapon fallback skipped:", err.message);
         }
       }
     }
@@ -1073,7 +1073,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         if (compDefaults?.armor?.value) {
           compAC = compDefaults.armor.value;
         }
-      } catch (err) { /* optional fallback */ }
+      } catch (err) { console.debug("Compendium armor fallback skipped:", err.message); }
       acValue = compAC || (armorType === "shield" ? 2 : 14);
     }
 
