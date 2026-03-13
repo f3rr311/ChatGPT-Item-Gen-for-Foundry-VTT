@@ -172,6 +172,11 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
  * Returns all the data needed to preview or create the item.
  */
 export async function generateItemData(itemPrompt, config, forcedName = null, explicitType = "") {
+  if (!game.user.isGM) {
+    ui.notifications.warn("Only the GM can generate items.");
+    return null;
+  }
+
   let combined = itemPrompt + (explicitType ? " - " + explicitType : "");
 
   // Generate the item name (or use the override if provided)

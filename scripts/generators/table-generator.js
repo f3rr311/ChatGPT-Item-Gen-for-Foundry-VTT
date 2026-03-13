@@ -92,6 +92,11 @@ function buildTextResult(text, entry, isV13) {
 // ---------- Roll Table Creation ----------
 
 export async function createFoundryRollTableFromDialog(tableDesc, explicitType, config, entryCount = 10) {
+  if (!game.user.isGM) {
+    ui.notifications.warn("Only the GM can generate roll tables.");
+    return null;
+  }
+
   showProgressBar();
   updateProgressBar(10);
 

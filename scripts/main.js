@@ -29,6 +29,22 @@ const PROMPT_TEMPLATES = [
 
 // ---------- Config Builder ----------
 
+/**
+ * @typedef {Object} GeneratorConfig
+ * @property {string} apiKey — OpenAI API key for chat completions
+ * @property {string} dalleApiKey — OpenAI API key for image generation
+ * @property {string} chatModel — Primary GPT model (e.g. "gpt-4.1")
+ * @property {string} lightModel — Lightweight GPT model for fixes/names
+ * @property {string} imageModel — Image generation model (e.g. "gpt-image-1")
+ * @property {string} imageFormat — Output format: "png", "webp", or "jpeg"
+ * @property {string[]} keywords — Item keyword list for name forcing
+ * @property {string} imageFolder — Foundry data folder for generated images
+ * @property {boolean} isDnd5eV4 — true if dnd5e system version >= 4.0.0
+ * @property {boolean} isDnd5eV5 — true if dnd5e system version >= 5.0.0
+ * @property {string|null} dnd5eVersion — dnd5e system version string, or null
+ * @property {boolean} isV13Core — true if Foundry core version >= 13
+ */
+
 function buildConfig() {
   const isDnd5e = game.system.id === "dnd5e";
   const sysVer = isDnd5e ? game.system.version : "0.0.0";
