@@ -11,7 +11,7 @@ import { createUniqueItemDoc, getOrCreateItemFolder } from './item-generator.js'
 // ---------- JSON Parsing ----------
 
 export async function parseTableJSON(rawJSON, config) {
-  console.log("Raw Roll Table JSON from GPT:", rawJSON);
+  console.debug("Raw Roll Table JSON from GPT:", rawJSON);
   try {
     return JSON.parse(rawJSON);
   } catch (err1) {

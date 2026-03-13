@@ -193,14 +193,14 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
   const fixedJSONInstructions = "Output valid JSON with double-quoted property names and no extra text.";
   const jsonPrompt = extraPrompt + " " + COMMON_PROMPT_BASE + " " + typePrompt + " " + fixedJSONInstructions + typeNote;
 
-  console.log("Generated JSON prompt:", jsonPrompt);
+  console.debug("Generated JSON prompt:", jsonPrompt);
 
   return await chatCompletion(config.apiKey, config.chatModel, jsonPrompt, prompt, maxTokens, true);
 }
 
 // ---------- Item Name Generation ----------
 
-export async function generateItemName(prompt, config) {
+export async function apiGenerateItemName(prompt, config) {
   if (!config.apiKey) return "Unnamed";
   const fixedNamePrompt = "Generate a creative, evocative fantasy item name. Use vivid or poetic language — names like 'Frostbite\\'s Lament', 'The Ashen Verdict', or 'Whisperwind Blade' rather than plain names like 'Fire Staff' or 'Magic Sword'. Even for well-known items, invent a unique name. Output only the name in plain text, no JSON.";
   const extraNamePrompt = game.settings.get(MODULE_ID, "chatgptNamePrompt");
@@ -211,11 +211,10 @@ export async function generateItemName(prompt, config) {
 
 // ---------- Item Name Refinement ----------
 
-export async function ensureItemName(currentName, description, config) {
+export async function apiEnsureItemName(currentName, description, config) {
   if (currentName && currentName.trim().length > 0) return currentName;
-  const prompt = `The current item name is: "${currentName}".
-The item description is: "${description}".
-Please provide a refined, improved item name that better reflects the details and flavor of the description. Output only the name in plain text.`;
+  const prompt = `The item description is: "${description}".
+Generate a creative fantasy item name that reflects the details and flavor of the description. Output only the name in plain text.`;
 
   return await chatCompletion(
     config.apiKey, config.lightModel || config.chatModel,

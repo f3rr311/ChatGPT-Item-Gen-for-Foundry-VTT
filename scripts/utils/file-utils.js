@@ -24,11 +24,11 @@ export async function ensureFolder(folderPath) {
   const FP = getFilePicker();
   try {
     await FP.createDirectory("data", folderPath);
-    console.log("Created folder:", folderPath);
+    // folder created successfully
   } catch (err) {
     const msg = (err?.message || String(err)).toLowerCase();
     if (msg.includes("eexist") || msg.includes("already exist")) {
-      console.log("Folder already exists:", folderPath);
+      // folder already exists — no action needed
     } else {
       console.error("Unexpected error creating folder:", folderPath, err);
       throw err;
@@ -43,7 +43,7 @@ export async function saveImageLocally(dataUrl, fileName, targetFolder) {
   const file = new File([blob], fileName, { type: blob.type });
   try {
     const upload = await FP.upload("data", targetFolder, file, { notify: false });
-    console.log("Saved image locally:", upload);
+    // image saved successfully
     return upload.path;
   } catch (err) {
     console.error("Error saving image locally:", err);

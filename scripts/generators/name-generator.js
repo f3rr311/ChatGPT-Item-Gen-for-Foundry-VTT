@@ -2,7 +2,7 @@
  * Item name generation, keyword forcing, and refinement.
  */
 
-import { generateItemName as apiGenerateItemName, ensureItemName as apiEnsureItemName } from '../api/openai.js';
+import { apiGenerateItemName, apiEnsureItemName } from '../api/openai.js';
 
 const KEYWORDS = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
 
@@ -19,17 +19,17 @@ export function forceKeywordInName(name, prompt, desc = "") {
 
   let forcedName = name;
   if (promptLC.includes("class change") && !name.toLowerCase().includes("class change")) {
-    console.log("Forcing 'Class Change' into item name.");
+    console.debug("Forcing 'Class Change' into item name.");
     forcedName = forcedName + " Class Change";
   }
   for (let keyword of KEYWORDS) {
     if (promptLC.includes(keyword) && !name.toLowerCase().includes(keyword)) {
-      console.log(`Forcing keyword "${keyword}" into name.`);
+      console.debug(`Forcing keyword "${keyword}" into name.`);
       forcedName = `${forcedName} ${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`;
     }
   }
   if (!promptLC.includes("dragon") && forcedName.toLowerCase().includes("dragon")) {
-    console.log("Removing 'dragon' from item name as it's not in the prompt.");
+    console.debug("Removing 'dragon' from item name as it's not in the prompt.");
     forcedName = forcedName.replace(/dragon/gi, "").replace(/\s+/g, " ").trim();
   }
   return forcedName;
@@ -40,6 +40,12 @@ export async function generateItemName(prompt, config) {
   return forceKeywordInName(name, prompt, "");
 }
 
+/**
+ * Thin wrapper around apiEnsureItemName for API boundary consistency.
+ * Unlike generateItemName, no keyword forcing is applied here because
+ * ensureItemName is a fallback for missing names — the prompt context
+ * needed for keyword matching is not available at this stage.
+ */
 export async function ensureItemName(currentName, description, config) {
   return await apiEnsureItemName(currentName, description, config);
 }

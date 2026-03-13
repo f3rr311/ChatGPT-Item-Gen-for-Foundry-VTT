@@ -67,7 +67,7 @@ const LOOT_DETECT_KEYWORDS = ["gold coin", "silver coin", "copper coin", "platin
 // ---------- JSON Parsing ----------
 
 export async function parseItemJSON(raw, config) {
-  console.log("Raw JSON from GPT:", raw);
+  console.debug("Raw JSON from GPT:", raw);
   try {
     return JSON.parse(raw);
   } catch (err1) {
@@ -559,7 +559,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // special powers in the description text. We extract these to fill gaps
   // in the structured JSON fields.
   const descBonuses = parseDescriptionBonuses(finalDesc);
-  console.log("Description scan results:", descBonuses);
+  console.debug("Description scan results:", descBonuses);
 
   // Refine the item name based on the description if no override was provided
   let refinedName = (forcedName && forcedName.trim().length > 0)
