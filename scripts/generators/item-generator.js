@@ -6,7 +6,7 @@
 import { sanitizeJSON } from '../utils/json-utils.js';
 import { fixInvalidJSON, generateItemJSON, generateItemImage, generateMagicalProperties } from '../api/openai.js';
 import { transformWeaponDamage, transformWeaponProperties, buildVersatileDamage, parseDescriptionBonuses, PROPERTY_ABBREV_MAP, parseDamageFormula } from '../utils/weapon-utils.js';
-import { ARMOR_DEFAULTS, parseDescriptionForArmor } from '../utils/armor-utils.js';
+import { parseDescriptionForArmor } from '../utils/armor-utils.js';
 import {
   normalizeSchool, normalizeActivation, normalizeDuration,
   normalizeRange, normalizeTarget, normalizeComponents,
@@ -47,6 +47,22 @@ function inferMagicalBonusFromRarity(rarity) {
   const RARITY_BONUS = { "uncommon": 1, "rare": 2, "very rare": 3, "veryrare": 3, "legendary": 3, "artifact": 3 };
   return RARITY_BONUS[r] || 0;
 }
+
+/** Consumable detection keywords for fallback type resolution */
+const CONSUMABLE_DETECT_KEYWORDS = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
+
+/** Tool detection keywords for fallback type resolution */
+const TOOL_DETECT_KEYWORDS = [
+  "dice set", "dice game", "gaming set", "playing card", "thieves' tools", "thieves tools", "lockpick",
+  "alchemist's supplies", "brewer's supplies", "calligrapher's supplies", "carpenter's tools", "cartographer's tools",
+  "cobbler's tools", "cook's utensils", "glassblower's tools", "jeweler's tools", "leatherworker's tools",
+  "mason's tools", "painter's supplies", "potter's tools", "smith's tools", "tinker's tools", "weaver's tools",
+  "woodcarver's tools", "disguise kit", "forgery kit", "herbalism kit", "navigator's tools", "poisoner's kit",
+  "lute", "drum", "flute", "lyre", "bagpipe", "dulcimer", "shawm", "viol", "pan pipes"
+];
+
+/** Loot detection keywords for fallback type resolution */
+const LOOT_DETECT_KEYWORDS = ["gold coin", "silver coin", "copper coin", "platinum coin", "gemstone", "raw gem", "uncut gem"];
 
 // ---------- JSON Parsing ----------
 
@@ -158,6 +174,342 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
   return foundryItemType;
 }
 
+// ---------- Fallback Type Overrides (Phase B) ----------
+
+/**
+ * Lower-confidence type overrides — only run when the current type is still "equipment"
+ * (the generic default). Checks for consumable, tool, and loot keywords.
+ */
+function applyFallbackTypeOverrides(foundryItemType, combinedLC) {
+  if (foundryItemType !== "equipment") return foundryItemType;
+  if (CONSUMABLE_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "consumable";
+  if (TOOL_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "tool";
+  if (LOOT_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "loot";
+  return foundryItemType;
+}
+
+// ---------- Subtype Resolution Helpers ----------
+
+/** Resolve the Foundry equipment subtype from name/description keywords. */
+function resolveEquipmentSubtype(nameLC, combinedText) {
+  if (hasWord(nameLC, "ring"))       return "ring";
+  if (hasWord(nameLC, "rod"))        return "rod";
+  if (hasWord(nameLC, "wand"))       return "wand";
+  if (hasWord(combinedText, "ring")) return "ring";
+  if (hasWord(combinedText, "rod"))  return "rod";
+  if (hasWord(combinedText, "wand")) return "wand";
+  const clothingKeywords = ["clothing", "robe", "cloak", "boots", "gloves", "hat", "helm", "belt",
+    "bracers", "cape", "mantle", "amulet", "necklace", "pendant", "circlet", "crown", "tiara",
+    "goggles", "vestment", "gauntlet", "slippers", "sandals"];
+  if (clothingKeywords.some(k => hasWord(combinedText, k))) return "clothing";
+  if (hasWord(combinedText, "trinket")) return "trinket";
+  if (hasWord(combinedText, "vehicle")) return "vehicle";
+  return "wondrous";
+}
+
+/** Resolve the consumable subtype from combined text and GPT's itemType. */
+function resolveConsumableSubtype(combinedText, parsedItemType) {
+  const validConsumables = ["potion", "poison", "scroll", "wand", "rod", "food", "trinket", "ammo"];
+  const consType = parsedItemType ? parsedItemType.toLowerCase() : "";
+  if (validConsumables.includes(consType)) return consType;
+
+  if (combinedText.includes("potion") || combinedText.includes("elixir") || combinedText.includes("philter") || combinedText.includes("draught") || combinedText.includes("brew") || combinedText.includes("tonic") || combinedText.includes("vial")) return "potion";
+  if (combinedText.includes("poison") || combinedText.includes("toxin") || combinedText.includes("venom")) return "poison";
+  if (combinedText.includes("scroll")) return "scroll";
+  if (combinedText.includes("ammunition") || combinedText.includes("arrow") || combinedText.includes("bolt") || combinedText.includes("bullet") || combinedText.includes("dart") || combinedText.includes("sling stone") || combinedText.includes("needle")) return "ammo";
+  if (combinedText.includes("food") || combinedText.includes("ration") || combinedText.includes("berry") || combinedText.includes("fruit") || combinedText.includes("bread") || combinedText.includes("herb") || combinedText.includes("mushroom") || combinedText.includes("feast")) return "food";
+  return "potion";
+}
+
+/** Resolve the tool subtype from combined name+description text. */
+function resolveToolSubtype(combinedText) {
+  if (combinedText.includes("gaming") || combinedText.includes("dice") || combinedText.includes("cards") || combinedText.includes("chess") || combinedText.includes("dragonchess")) return "game";
+  if (combinedText.includes("instrument") || combinedText.includes("lute") || combinedText.includes("drum") || combinedText.includes("flute") || combinedText.includes("horn") || combinedText.includes("lyre") || combinedText.includes("pan pipes") || combinedText.includes("shawm") || combinedText.includes("viol") || combinedText.includes("bagpipe") || combinedText.includes("dulcimer")) return "music";
+  if (combinedText.includes("thieves") || combinedText.includes("lockpick") || combinedText.includes("pick lock")) return "thief";
+  if (combinedText.includes("navigator") || combinedText.includes("navigation")) return "navg";
+  if (combinedText.includes("herbalism")) return "herb";
+  if (combinedText.includes("poisoner")) return "pois";
+  if (combinedText.includes("vehicle") || combinedText.includes("cart") || combinedText.includes("ship") || combinedText.includes("boat")) return "vehicle";
+  if (combinedText.includes("alchemist")) return "alchemist";
+  if (combinedText.includes("brewer")) return "brewer";
+  if (combinedText.includes("calligrapher")) return "calligrapher";
+  if (combinedText.includes("carpenter")) return "carpenter";
+  if (combinedText.includes("cartographer")) return "cartographer";
+  if (combinedText.includes("cobbler")) return "cobbler";
+  if (combinedText.includes("cook")) return "cook";
+  if (combinedText.includes("glassblower")) return "glassblower";
+  if (combinedText.includes("jeweler")) return "jeweler";
+  if (combinedText.includes("leatherworker")) return "leatherworker";
+  if (combinedText.includes("mason")) return "mason";
+  if (combinedText.includes("painter")) return "painter";
+  if (combinedText.includes("potter")) return "potter";
+  if (combinedText.includes("smith") || combinedText.includes("forge") || combinedText.includes("anvil") || combinedText.includes("hammer") || combinedText.includes("tongs")) return "smith";
+  if (combinedText.includes("tinker")) return "tinker";
+  if (combinedText.includes("weaver")) return "weaver";
+  if (combinedText.includes("woodcarver")) return "woodcarver";
+  if (combinedText.includes("disguise")) return "disg";
+  if (combinedText.includes("forgery")) return "forg";
+  return "art";
+}
+
+/** Resolve the loot subtype from combined name+description text. */
+function resolveLootSubtype(combinedText) {
+  if (combinedText.includes("gem") || combinedText.includes("jewel") || combinedText.includes("diamond") || combinedText.includes("ruby") || combinedText.includes("sapphire") || combinedText.includes("emerald") || combinedText.includes("opal") || combinedText.includes("pearl") || combinedText.includes("amethyst") || combinedText.includes("topaz") || combinedText.includes("garnet")) return "gem";
+  if (combinedText.includes("art") || combinedText.includes("painting") || combinedText.includes("sculpture") || combinedText.includes("tapestry") || combinedText.includes("idol") || combinedText.includes("statuette") || combinedText.includes("figurine") || combinedText.includes("carving") || combinedText.includes("portrait")) return "art";
+  if (combinedText.includes("material") || combinedText.includes("ingot") || combinedText.includes("ore") || combinedText.includes("hide") || combinedText.includes("pelt") || combinedText.includes("silk") || combinedText.includes("cloth") || combinedText.includes("lumber") || combinedText.includes("component")) return "material";
+  if (combinedText.includes("junk") || combinedText.includes("scrap") || combinedText.includes("broken") || combinedText.includes("rusty") || combinedText.includes("worthless")) return "junk";
+  return "treasure";
+}
+
+// ---------- Activity Builder Helpers ----------
+
+/** Build weapon activities (attack + extra damage) on newItemData. */
+function buildWeaponActivities(newItemData, parsed) {
+  newItemData.system.activities = {};
+  const classification = newItemData.system.type?.value || "simpleM";
+  const isRanged = classification.endsWith("R");
+  const atkType = isRanged ? "ranged" : "melee";
+
+  const attackActivity = buildAttackActivity(atkType, "weapon", "");
+  newItemData.system.activities[attackActivity._id] = attackActivity;
+
+  if (parsed.extraDamage && Array.isArray(parsed.extraDamage)) {
+    for (const extra of parsed.extraDamage) {
+      const ef = parseDamageFormula(extra.formula);
+      if (ef) {
+        const dmgPart = buildDamagePart(extra.type || "force", ef.number, ef.denomination, ef.bonus);
+        const typeName = (extra.type || "").charAt(0).toUpperCase() + (extra.type || "").slice(1);
+        const dmgActivity = buildDamageActivity([dmgPart], `Extra ${typeName || "Bonus"} Damage`);
+        newItemData.system.activities[dmgActivity._id] = dmgActivity;
+      }
+    }
+  }
+}
+
+/** Build spell activities (save/attack/heal/utility) and condition effects on newItemData. */
+function buildSpellActivities(newItemData, parsed, refinedName) {
+  newItemData.system.activities = {};
+  const spellActionType = newItemData.system.actionType;
+
+  if (spellActionType === "save" && newItemData.system.save?.ability) {
+    const spellDmgParts = [];
+    const sDmg = newItemData.system.damage;
+    if (sDmg && sDmg.base && sDmg.base.number) {
+      const isCantrip = newItemData.system.level === 0;
+      const hasUpcast = newItemData.system.scaling?.mode === "level";
+      const scaleMode = isCantrip ? "whole" : (hasUpcast ? "level" : "");
+      spellDmgParts.push(buildDamagePart(
+        sDmg.base.types || [],
+        sDmg.base.number,
+        sDmg.base.denomination,
+        sDmg.base.bonus || "",
+        scaleMode
+      ));
+    }
+    const saveActivity = buildSaveActivity(
+      newItemData.system.save.ability,
+      spellDmgParts,
+      "half",
+      "spellcasting"
+    );
+    newItemData.system.activities[saveActivity._id] = saveActivity;
+  }
+  else if (spellActionType === "msak" || spellActionType === "rsak") {
+    const spellAtkType = spellActionType === "msak" ? "melee" : "ranged";
+    const spellAtkActivity = buildAttackActivity(spellAtkType, "spell", "");
+    newItemData.system.activities[spellAtkActivity._id] = spellAtkActivity;
+  }
+  else if (spellActionType === "heal") {
+    let healNum = 0, healDenom = 0, healBonus = "0";
+    const hDmg = newItemData.system.damage;
+    if (hDmg && hDmg.base) {
+      healNum = hDmg.base.number || 0;
+      healDenom = hDmg.base.denomination || 0;
+      healBonus = (hDmg.base.bonus || "0").replace(/^\+/, "");
+    } else if (hDmg && hDmg.parts && hDmg.parts.length > 0) {
+      const hf = parseDamageFormula(hDmg.parts[0][0]);
+      if (hf) {
+        healNum = hf.number;
+        healDenom = hf.denomination;
+        healBonus = (hf.bonus || "0").replace(/^\+/, "");
+      }
+    }
+    const spellHealActivity = buildHealActivity(healNum, healDenom, healBonus);
+    newItemData.system.activities[spellHealActivity._id] = spellHealActivity;
+  }
+  else {
+    const actType = newItemData.system.activation?.type || "action";
+    const utilActivity = buildUtilityActivity(refinedName, actType);
+    newItemData.system.activities[utilActivity._id] = utilActivity;
+  }
+
+  // Spell applied condition → Active Effect linked to activity
+  if (parsed.appliedCondition) {
+    const conditionName = parsed.appliedCondition;
+    const conditionLC = conditionName.toLowerCase();
+    let effectDur = {};
+    if (newItemData.system.duration) {
+      const secs = durationToSeconds(newItemData.system.duration.units, newItemData.system.duration.value);
+      if (secs) effectDur.seconds = secs;
+    }
+    const condEffect = buildActiveEffect(conditionName, [], {
+      statuses: [conditionLC],
+      transfer: false,
+      duration: effectDur,
+      img: newItemData.img
+    });
+    newItemData.effects = newItemData.effects || [];
+    newItemData.effects.push(condEffect);
+    const firstActId = Object.keys(newItemData.system.activities)[0];
+    if (firstActId) {
+      newItemData.system.activities[firstActId].effects.push({ _id: condEffect._id });
+    }
+  }
+}
+
+/** Build consumable activities (heal or utility "Use") on newItemData. */
+function buildConsumableActivities(newItemData, parsed, refinedName, finalDesc) {
+  const consSubtype = newItemData.system.type?.value || "";
+  const consNameLC = refinedName.toLowerCase();
+  const consDescPlain = finalDesc.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  const consText = consNameLC + " " + consDescPlain;
+
+  newItemData.system.activities = {};
+  const consumptionTargets = [{ type: "itemUses", value: "1", scaling: {} }];
+  let activityCreated = false;
+
+  const isHealing = (consSubtype === "potion" || consSubtype === "food") &&
+    (consText.includes("heal") || consText.includes("restore") || consText.includes("regain") || consText.includes("hit point") || consText.includes("hp"));
+  if (isHealing) {
+    const healMatch = consDescPlain.match(/(\d+)d(\d+)\s*([+-]\s*\d+)?/i);
+    let healNum, healDenom, healBonus;
+    if (healMatch) {
+      healNum = parseInt(healMatch[1], 10);
+      healDenom = parseInt(healMatch[2], 10);
+      healBonus = (healMatch[3] || "0").replace(/\s+/g, "").replace(/^\+/, "");
+    } else {
+      const rarity = (parsed.rarity || "common").toLowerCase();
+      const HEAL_DEFAULTS = {
+        "common": { num: 2, die: 4, bonus: "2" },
+        "uncommon": { num: 4, die: 4, bonus: "4" },
+        "rare": { num: 8, die: 4, bonus: "8" },
+        "very rare": { num: 10, die: 4, bonus: "20" },
+        "veryrare": { num: 10, die: 4, bonus: "20" },
+        "legendary": { num: 10, die: 4, bonus: "20" }
+      };
+      const def = HEAL_DEFAULTS[rarity] || HEAL_DEFAULTS["common"];
+      healNum = def.num;
+      healDenom = def.die;
+      healBonus = def.bonus;
+    }
+    const potionHealActivity = buildHealActivity(healNum, healDenom, healBonus, consumptionTargets);
+    potionHealActivity.activation = { type: "action", override: false };
+    newItemData.system.activities[potionHealActivity._id] = potionHealActivity;
+    activityCreated = true;
+  }
+
+  if (!activityCreated) {
+    const useActivity = buildUtilityActivity("Use", "action");
+    useActivity.consumption = {
+      scaling: { allowed: false },
+      spellSlot: false,
+      targets: consumptionTargets
+    };
+    newItemData.system.activities[useActivity._id] = useActivity;
+  }
+
+  newItemData.system.uses = { max: "1", spent: 0, recovery: [], autoDestroy: true };
+}
+
+// ---------- Mechanical Effects & Castable Spells ----------
+
+/** Apply GPT's mechanicalEffects array as Active Effects on newItemData. */
+function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
+  if (!parsed.mechanicalEffects || !Array.isArray(parsed.mechanicalEffects) || parsed.mechanicalEffects.length === 0) return;
+
+  const isArmorForEffects = foundryItemType === "equipment" &&
+    ["light", "medium", "heavy", "natural", "shield"].includes(newItemData.system.type?.value);
+  const isConsumable = foundryItemType === "consumable";
+
+  let consumableDuration = {};
+  if (isConsumable && parsed.effectDuration) {
+    const secs = durationToSeconds(parsed.effectDuration.unit, parsed.effectDuration.value);
+    if (secs) consumableDuration.seconds = secs;
+  }
+
+  newItemData.effects = newItemData.effects || [];
+  for (const mechEffect of parsed.mechanicalEffects) {
+    if (isArmorForEffects && ["ac", "stealth"].includes(mechEffect.target?.toLowerCase())) {
+      continue;
+    }
+
+    const effChanges = [];
+    const mapped = mapEffectChange(mechEffect.type, mechEffect.target, mechEffect.value);
+    if (mapped) effChanges.push(mapped);
+
+    if (effChanges.length > 0) {
+      const effect = buildActiveEffect(mechEffect.name || "Effect", effChanges, {
+        transfer: isConsumable ? false : true,
+        duration: isConsumable ? consumableDuration : {},
+        img: newItemData.img
+      });
+      newItemData.effects.push(effect);
+
+      if (isConsumable && newItemData.system.activities) {
+        const firstActId = Object.keys(newItemData.system.activities)[0];
+        if (firstActId) {
+          newItemData.system.activities[firstActId].effects = newItemData.system.activities[firstActId].effects || [];
+          newItemData.system.activities[firstActId].effects.push({ _id: effect._id });
+        }
+      }
+    }
+  }
+}
+
+/** Process castable spells (staves, wands, rings) and add cast activities. */
+async function applyCastableSpells(newItemData, parsed, config) {
+  if (!parsed.castableSpells || !Array.isArray(parsed.castableSpells) || parsed.castableSpells.length === 0 || !config.isDnd5eV4) return;
+
+  if (!newItemData.system.activities) newItemData.system.activities = {};
+
+  const uniqueSpells = new Map();
+  for (const sp of parsed.castableSpells) {
+    const key = (sp.name || "Unknown Spell").toLowerCase().trim();
+    if (!uniqueSpells.has(key)) {
+      uniqueSpells.set(key, sp);
+    }
+  }
+
+  for (const [, spellData] of uniqueSpells) {
+    try {
+      let spellUuid = await findSpellByName(spellData.name);
+
+      if (!spellUuid) {
+        const newSpell = await Item.create({
+          name: spellData.name || "Unknown Spell",
+          type: "spell",
+          system: {
+            level: spellData.level ?? 1,
+            school: normalizeSchool(spellData.school || "evocation"),
+            description: { value: spellData.description || "" },
+            preparation: { mode: "atwill" }
+          }
+        });
+        spellUuid = newSpell.uuid;
+      }
+
+      const castAct = buildCastActivity(
+        spellUuid,
+        spellData.chargeCost || 1,
+        `Cast ${spellData.name || "Spell"}`
+      );
+      newItemData.system.activities[castAct._id] = castAct;
+    } catch (err) {
+      console.error(`Error processing castable spell "${spellData.name}":`, err);
+    }
+  }
+}
+
 // ---------- Core Item Document Creation ----------
 
 /**
@@ -255,35 +607,9 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   foundryItemType = applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc, parsed, descBonuses);
 
   // --- Phase B: Fallback overrides — only run in auto-detect mode when still "equipment". ---
-  // Lower-confidence checks that should respect explicit user/GPT type choices.
   if (!explicitType) {
     const combinedLC = generatedName.toLowerCase() + " " + finalDesc.toLowerCase();
-
-    if (foundryItemType === "equipment") {
-      const consumableKeywords = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
-      if (consumableKeywords.some(term => combinedLC.includes(term))) {
-        foundryItemType = "consumable";
-      }
-    }
-
-    if (foundryItemType === "equipment") {
-      const toolKeywords = ["dice set", "dice game", "gaming set", "playing card", "thieves' tools", "thieves tools", "lockpick",
-        "alchemist's supplies", "brewer's supplies", "calligrapher's supplies", "carpenter's tools", "cartographer's tools",
-        "cobbler's tools", "cook's utensils", "glassblower's tools", "jeweler's tools", "leatherworker's tools",
-        "mason's tools", "painter's supplies", "potter's tools", "smith's tools", "tinker's tools", "weaver's tools",
-        "woodcarver's tools", "disguise kit", "forgery kit", "herbalism kit", "navigator's tools", "poisoner's kit",
-        "lute", "drum", "flute", "lyre", "bagpipe", "dulcimer", "shawm", "viol", "pan pipes"];
-      if (toolKeywords.some(term => combinedLC.includes(term))) {
-        foundryItemType = "tool";
-      }
-    }
-
-    if (foundryItemType === "equipment") {
-      const lootKeywords = ["gold coin", "silver coin", "copper coin", "platinum coin", "gemstone", "raw gem", "uncut gem"];
-      if (lootKeywords.some(term => combinedLC.includes(term))) {
-        foundryItemType = "loot";
-      }
-    }
+    foundryItemType = applyFallbackTypeOverrides(foundryItemType, combinedLC);
   }
 
   // ---------- Parse the GPT type object ----------
@@ -862,28 +1188,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     const combined = nameLC + " " + descLC;
 
     if (config.isDnd5eV4) {
-      // Map common item keywords to Foundry equipment subtypes.
-      // Uses word-boundary matching to prevent false positives
-      // (e.g. "charging" matching "ring", "wander" matching "wand").
-      // Checks the item NAME first (most reliable), then falls back to name+description.
-      let equipSubtype = "wondrous"; // default for generic equipment
-
-      // --- Priority 1: Match from item name (most reliable) ---
-      // Note: "staff" is NOT a valid Foundry equipment subtype — staffs are weapons
-      // (quarterstaffs). If a staff reaches this equipment code path, it stays "wondrous".
-      if (hasWord(nameLC, "ring"))       equipSubtype = "ring";
-      else if (hasWord(nameLC, "rod"))   equipSubtype = "rod";
-      else if (hasWord(nameLC, "wand"))  equipSubtype = "wand";
-      // --- Priority 2: Match from combined name + description ---
-      else if (hasWord(combined, "ring"))  equipSubtype = "ring";
-      else if (hasWord(combined, "rod"))   equipSubtype = "rod";
-      else if (hasWord(combined, "wand"))  equipSubtype = "wand";
-      // --- Clothing: many keywords, check combined ---
-      else if (hasWord(combined, "clothing") || hasWord(combined, "robe") || hasWord(combined, "cloak") || hasWord(combined, "boots") || hasWord(combined, "gloves") || hasWord(combined, "hat") || hasWord(combined, "helm") || hasWord(combined, "belt") || hasWord(combined, "bracers") || hasWord(combined, "cape") || hasWord(combined, "mantle") || hasWord(combined, "amulet") || hasWord(combined, "necklace") || hasWord(combined, "pendant") || hasWord(combined, "circlet") || hasWord(combined, "crown") || hasWord(combined, "tiara") || hasWord(combined, "goggles") || hasWord(combined, "vestment") || hasWord(combined, "gauntlet") || hasWord(combined, "slippers") || hasWord(combined, "sandals")) equipSubtype = "clothing";
-      else if (hasWord(combined, "trinket")) equipSubtype = "trinket";
-      else if (hasWord(combined, "vehicle")) equipSubtype = "vehicle";
-
-      newItemData.system.type = { value: equipSubtype };
+      newItemData.system.type = { value: resolveEquipmentSubtype(nameLC, combined) };
     }
 
     // Magical bonus for equipment (e.g., +1 Ring of Protection, +2 Cloak of Protection)
@@ -926,26 +1231,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   }
 
   // ---------- Consumable subtype ----------
-  // Auto-detect consumable subtype from name/description when GPT doesn't specify one.
 
   if (foundryItemType === "consumable") {
     const combined = nameLC + " " + descLC;
-
-    let consType = "";
-    if (parsed.itemType) {
-      consType = parsed.itemType.toLowerCase();
-    }
-
-    // Auto-detect consumable subtype if GPT didn't provide one or gave a non-subtype value
-    const validConsumables = ["potion", "poison", "scroll", "wand", "rod", "food", "trinket", "ammo"];
-    if (!validConsumables.includes(consType)) {
-      if (combined.includes("potion") || combined.includes("elixir") || combined.includes("philter") || combined.includes("draught") || combined.includes("brew") || combined.includes("tonic") || combined.includes("vial")) consType = "potion";
-      else if (combined.includes("poison") || combined.includes("toxin") || combined.includes("venom")) consType = "poison";
-      else if (combined.includes("scroll")) consType = "scroll";
-      else if (combined.includes("ammunition") || combined.includes("arrow") || combined.includes("bolt") || combined.includes("bullet") || combined.includes("dart") || combined.includes("sling stone") || combined.includes("needle")) consType = "ammo";
-      else if (combined.includes("food") || combined.includes("ration") || combined.includes("berry") || combined.includes("fruit") || combined.includes("bread") || combined.includes("herb") || combined.includes("mushroom") || combined.includes("feast")) consType = "food";
-      else consType = "potion"; // default consumable subtype
-    }
+    const consType = resolveConsumableSubtype(combined, parsed.itemType);
 
     if (config.isDnd5eV4) {
       newItemData.system.type = { value: consType };
@@ -968,290 +1257,34 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   }
 
   // ---------- Tool subtype ----------
-  // Tools in dnd5e have system.type.value for the tool type.
-  // Auto-detect from name/description.
 
-  if (foundryItemType === "tool") {
+  if (foundryItemType === "tool" && config.isDnd5eV4) {
     const combined = nameLC + " " + descLC;
-
-    if (config.isDnd5eV4) {
-      let toolType = "art"; // default to artisan's tools
-      if (combined.includes("gaming") || combined.includes("dice") || combined.includes("cards") || combined.includes("chess") || combined.includes("dragonchess")) toolType = "game";
-      else if (combined.includes("instrument") || combined.includes("lute") || combined.includes("drum") || combined.includes("flute") || combined.includes("horn") || combined.includes("lyre") || combined.includes("pan pipes") || combined.includes("shawm") || combined.includes("viol") || combined.includes("bagpipe") || combined.includes("dulcimer")) toolType = "music";
-      else if (combined.includes("thieves") || combined.includes("lockpick") || combined.includes("pick lock")) toolType = "thief";
-      else if (combined.includes("navigator") || combined.includes("navigation")) toolType = "navg";
-      else if (combined.includes("herbalism")) toolType = "herb";
-      else if (combined.includes("poisoner")) toolType = "pois";
-      else if (combined.includes("vehicle") || combined.includes("cart") || combined.includes("ship") || combined.includes("boat")) toolType = "vehicle";
-      // Artisan tool subtypes
-      else if (combined.includes("alchemist")) toolType = "alchemist";
-      else if (combined.includes("brewer")) toolType = "brewer";
-      else if (combined.includes("calligrapher")) toolType = "calligrapher";
-      else if (combined.includes("carpenter")) toolType = "carpenter";
-      else if (combined.includes("cartographer")) toolType = "cartographer";
-      else if (combined.includes("cobbler")) toolType = "cobbler";
-      else if (combined.includes("cook")) toolType = "cook";
-      else if (combined.includes("glassblower")) toolType = "glassblower";
-      else if (combined.includes("jeweler")) toolType = "jeweler";
-      else if (combined.includes("leatherworker")) toolType = "leatherworker";
-      else if (combined.includes("mason")) toolType = "mason";
-      else if (combined.includes("painter")) toolType = "painter";
-      else if (combined.includes("potter")) toolType = "potter";
-      else if (combined.includes("smith") || combined.includes("forge") || combined.includes("anvil") || combined.includes("hammer") || combined.includes("tongs")) toolType = "smith";
-      else if (combined.includes("tinker")) toolType = "tinker";
-      else if (combined.includes("weaver")) toolType = "weaver";
-      else if (combined.includes("woodcarver")) toolType = "woodcarver";
-      else if (combined.includes("disguise")) toolType = "disg";
-      else if (combined.includes("forgery")) toolType = "forg";
-
-      newItemData.system.type = { value: toolType };
-    }
+    newItemData.system.type = { value: resolveToolSubtype(combined) };
   }
 
   // ---------- Loot subtype ----------
-  // Loot in dnd5e has system.type.value for the loot category.
-  // Auto-detect from name/description.
 
-  if (foundryItemType === "loot") {
+  if (foundryItemType === "loot" && config.isDnd5eV4) {
     const combined = nameLC + " " + descLC;
-
-    if (config.isDnd5eV4) {
-      let lootType = "treasure"; // default
-      if (combined.includes("gem") || combined.includes("jewel") || combined.includes("diamond") || combined.includes("ruby") || combined.includes("sapphire") || combined.includes("emerald") || combined.includes("opal") || combined.includes("pearl") || combined.includes("amethyst") || combined.includes("topaz") || combined.includes("garnet")) lootType = "gem";
-      else if (combined.includes("art") || combined.includes("painting") || combined.includes("sculpture") || combined.includes("tapestry") || combined.includes("idol") || combined.includes("statuette") || combined.includes("figurine") || combined.includes("carving") || combined.includes("portrait")) lootType = "art";
-      else if (combined.includes("material") || combined.includes("ingot") || combined.includes("ore") || combined.includes("hide") || combined.includes("pelt") || combined.includes("silk") || combined.includes("cloth") || combined.includes("lumber") || combined.includes("component")) lootType = "material";
-      else if (combined.includes("junk") || combined.includes("scrap") || combined.includes("broken") || combined.includes("rusty") || combined.includes("worthless")) lootType = "junk";
-
-      newItemData.system.type = { value: lootType };
-    }
+    newItemData.system.type = { value: resolveLootSubtype(combined) };
   }
 
-  // ---------- Activities & Active Effects ----------
-  // Activities are the action system in dnd5e v4+ that make items functional —
-  // weapons roll attacks, spells trigger saves, potions heal.
-  // Active Effects apply passive bonuses (resistances, advantages, AC bonuses).
+  // ---------- Activities (dnd5e v4+ only) ----------
 
-  // --- Activities (dnd5e v4+ only) ---
   if (config.isDnd5eV4) {
-
-    // WEAPONS: attack activity + extra damage activities
     if (foundryItemType === "weapon") {
-      newItemData.system.activities = {};
-      const classification = newItemData.system.type?.value || "simpleM";
-      const isRanged = classification.endsWith("R");
-      const atkType = isRanged ? "ranged" : "melee";
-
-      const attackActivity = buildAttackActivity(atkType, "weapon", "");
-      newItemData.system.activities[attackActivity._id] = attackActivity;
-
-      // Extra damage from GPT structured data (e.g. "extra 1d6 radiant to undead")
-      // Description-based extra damage is handled by the validator (no double-scanning)
-      if (parsed.extraDamage && Array.isArray(parsed.extraDamage)) {
-        for (const extra of parsed.extraDamage) {
-          const ef = parseDamageFormula(extra.formula);
-          if (ef) {
-            const dmgPart = buildDamagePart(extra.type || "force", ef.number, ef.denomination, ef.bonus);
-            // Name from damage type, not condition — "Extra Fire Damage" not "on a hit"
-            const typeName = (extra.type || "").charAt(0).toUpperCase() + (extra.type || "").slice(1);
-            const dmgActivity = buildDamageActivity([dmgPart], `Extra ${typeName || "Bonus"} Damage`);
-            newItemData.system.activities[dmgActivity._id] = dmgActivity;
-          }
-        }
-      }
-
-    }
-
-    // SPELLS: save / attack / heal / utility activity
-    else if (foundryItemType === "spell") {
-      newItemData.system.activities = {};
-      const spellActionType = newItemData.system.actionType;
-
-      if (spellActionType === "save" && newItemData.system.save?.ability) {
-        // Build damage parts from the item's damage data
-        const spellDmgParts = [];
-        const sDmg = newItemData.system.damage;
-        if (sDmg && sDmg.base && sDmg.base.number) {
-          const isCantrip = newItemData.system.level === 0;
-          const hasUpcast = newItemData.system.scaling?.mode === "level";
-          const scaleMode = isCantrip ? "whole" : (hasUpcast ? "level" : "");
-          spellDmgParts.push(buildDamagePart(
-            sDmg.base.types || [],
-            sDmg.base.number,
-            sDmg.base.denomination,
-            sDmg.base.bonus || "",
-            scaleMode
-          ));
-        }
-
-        const saveActivity = buildSaveActivity(
-          newItemData.system.save.ability,
-          spellDmgParts,
-          "half",
-          "spellcasting"
-        );
-        newItemData.system.activities[saveActivity._id] = saveActivity;
-      }
-      else if (spellActionType === "msak" || spellActionType === "rsak") {
-        const spellAtkType = spellActionType === "msak" ? "melee" : "ranged";
-        const spellAtkActivity = buildAttackActivity(spellAtkType, "spell", "");
-        newItemData.system.activities[spellAtkActivity._id] = spellAtkActivity;
-      }
-      else if (spellActionType === "heal") {
-        let healNum = 0, healDenom = 0, healBonus = "0";
-        const hDmg = newItemData.system.damage;
-        if (hDmg && hDmg.base) {
-          healNum = hDmg.base.number || 0;
-          healDenom = hDmg.base.denomination || 0;
-          healBonus = (hDmg.base.bonus || "0").replace(/^\+/, "");
-        } else if (hDmg && hDmg.parts && hDmg.parts.length > 0) {
-          const hf = parseDamageFormula(hDmg.parts[0][0]);
-          if (hf) {
-            healNum = hf.number;
-            healDenom = hf.denomination;
-            healBonus = (hf.bonus || "0").replace(/^\+/, "");
-          }
-        }
-        const spellHealActivity = buildHealActivity(healNum, healDenom, healBonus);
-        newItemData.system.activities[spellHealActivity._id] = spellHealActivity;
-      }
-      else {
-        // Utility spell (buffs, debuffs, utility effects)
-        const actType = newItemData.system.activation?.type || "action";
-        const utilActivity = buildUtilityActivity(refinedName, actType);
-        newItemData.system.activities[utilActivity._id] = utilActivity;
-      }
-
-      // Spell applied condition → Active Effect linked to activity
-      if (parsed.appliedCondition) {
-        const conditionName = parsed.appliedCondition;
-        const conditionLC = conditionName.toLowerCase();
-        let effectDur = {};
-        if (newItemData.system.duration) {
-          const secs = durationToSeconds(newItemData.system.duration.units, newItemData.system.duration.value);
-          if (secs) effectDur.seconds = secs;
-        }
-        const condEffect = buildActiveEffect(conditionName, [], {
-          statuses: [conditionLC],
-          transfer: false,
-          duration: effectDur,
-          img: newItemData.img
-        });
-        newItemData.effects = newItemData.effects || [];
-        newItemData.effects.push(condEffect);
-        // Link effect to the first activity
-        const firstActId = Object.keys(newItemData.system.activities)[0];
-        if (firstActId) {
-          newItemData.system.activities[firstActId].effects.push({ _id: condEffect._id });
-        }
-      }
-
-    }
-
-    // CONSUMABLES: activities for potions, foods, and other consumables
-    else if (foundryItemType === "consumable") {
-      const consSubtype = newItemData.system.type?.value || "";
-      const consNameLC = refinedName.toLowerCase();
-      const consDescPlain = finalDesc.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-      const consText = consNameLC + " " + consDescPlain;
-
-      newItemData.system.activities = {};
-      const consumptionTargets = [{ type: "itemUses", value: "1", scaling: {} }];
-      let activityCreated = false;
-
-      // Healing potions/foods — detect and create heal activity
-      const isHealing = (consSubtype === "potion" || consSubtype === "food") &&
-        (consText.includes("heal") || consText.includes("restore") || consText.includes("regain") || consText.includes("hit point") || consText.includes("hp"));
-      if (isHealing) {
-        const healMatch = consDescPlain.match(/(\d+)d(\d+)\s*([+-]\s*\d+)?/i);
-        let healNum, healDenom, healBonus;
-        if (healMatch) {
-          healNum = parseInt(healMatch[1], 10);
-          healDenom = parseInt(healMatch[2], 10);
-          healBonus = (healMatch[3] || "0").replace(/\s+/g, "").replace(/^\+/, "");
-        } else {
-          // Default healing formula based on rarity (PHB healing potion scale)
-          const rarity = (parsed.rarity || "common").toLowerCase();
-          const HEAL_DEFAULTS = {
-            "common": { num: 2, die: 4, bonus: "2" },
-            "uncommon": { num: 4, die: 4, bonus: "4" },
-            "rare": { num: 8, die: 4, bonus: "8" },
-            "very rare": { num: 10, die: 4, bonus: "20" },
-            "veryrare": { num: 10, die: 4, bonus: "20" },
-            "legendary": { num: 10, die: 4, bonus: "20" }
-          };
-          const def = HEAL_DEFAULTS[rarity] || HEAL_DEFAULTS["common"];
-          healNum = def.num;
-          healDenom = def.die;
-          healBonus = def.bonus;
-        }
-        const potionHealActivity = buildHealActivity(healNum, healDenom, healBonus, consumptionTargets);
-        potionHealActivity.activation = { type: "action", override: false };
-        newItemData.system.activities[potionHealActivity._id] = potionHealActivity;
-        activityCreated = true;
-      }
-
-      // Non-healing consumables — create a utility "Use" activity so the item is usable
-      if (!activityCreated) {
-        const useActivity = buildUtilityActivity("Use", "action");
-        useActivity.consumption = {
-          scaling: { allowed: false },
-          spellSlot: false,
-          targets: consumptionTargets
-        };
-        newItemData.system.activities[useActivity._id] = useActivity;
-      }
-
-      // Set uses for consumables with autoDestroy
-      newItemData.system.uses = { max: "1", spent: 0, recovery: [], autoDestroy: true };
+      buildWeaponActivities(newItemData, parsed);
+    } else if (foundryItemType === "spell") {
+      buildSpellActivities(newItemData, parsed, refinedName);
+    } else if (foundryItemType === "consumable") {
+      buildConsumableActivities(newItemData, parsed, refinedName, finalDesc);
     }
   }
 
-  // --- Active Effects (ALL dnd5e versions) ---
-  // Passive mechanical effects from GPT (resistances, skill advantages, bonuses, etc.)
-  // For armor items, skip AC/stealth effects — those are already handled by
-  // system.armor fields and would double-count if also created as Active Effects.
-  // For consumables, effects are applied on use (transfer: false) and linked to the activity.
-  if (parsed.mechanicalEffects && Array.isArray(parsed.mechanicalEffects) && parsed.mechanicalEffects.length > 0) {
-    const isArmorForEffects = foundryItemType === "equipment" &&
-      ["light", "medium", "heavy", "natural", "shield"].includes(newItemData.system.type?.value);
-    const isConsumable = foundryItemType === "consumable";
+  // ---------- Active Effects (ALL dnd5e versions) ----------
 
-    // For consumables, compute effect duration from GPT's effectDuration field
-    let consumableDuration = {};
-    if (isConsumable && parsed.effectDuration) {
-      const secs = durationToSeconds(parsed.effectDuration.unit, parsed.effectDuration.value);
-      if (secs) consumableDuration.seconds = secs;
-    }
-
-    newItemData.effects = newItemData.effects || [];
-    for (const mechEffect of parsed.mechanicalEffects) {
-      if (isArmorForEffects && ["ac", "stealth"].includes(mechEffect.target?.toLowerCase())) {
-        continue;
-      }
-
-      const effChanges = [];
-      const mapped = mapEffectChange(mechEffect.type, mechEffect.target, mechEffect.value);
-      if (mapped) effChanges.push(mapped);
-
-      if (effChanges.length > 0) {
-        const effect = buildActiveEffect(mechEffect.name || "Effect", effChanges, {
-          transfer: isConsumable ? false : true,
-          duration: isConsumable ? consumableDuration : {},
-          img: newItemData.img
-        });
-        newItemData.effects.push(effect);
-
-        // For consumables, link the effect to the first activity so it applies on use
-        if (isConsumable && newItemData.system.activities) {
-          const firstActId = Object.keys(newItemData.system.activities)[0];
-          if (firstActId) {
-            newItemData.system.activities[firstActId].effects = newItemData.system.activities[firstActId].effects || [];
-            newItemData.system.activities[firstActId].effects.push({ _id: effect._id });
-          }
-        }
-      }
-    }
-  }
+  applyMechanicalEffects(newItemData, parsed, foundryItemType);
 
   // --- Charges for items with spell-casting abilities ---
   if (parsed.charges && parsed.charges.max) {
@@ -1267,53 +1300,8 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   }
 
   // ---------- Castable spells (staves, wands, rings, etc.) ----------
-  // Process BEFORE Item.create() so cast activities are included at creation time.
-  // De-duplicates by spell name and searches compendiums before creating new spells.
-  if (parsed.castableSpells && Array.isArray(parsed.castableSpells) && parsed.castableSpells.length > 0 && config.isDnd5eV4) {
-    // Ensure activities object exists
-    if (!newItemData.system.activities) newItemData.system.activities = {};
 
-    // De-duplicate by spell name (GPT may return same spell at different charge costs/levels)
-    const uniqueSpells = new Map();
-    for (const sp of parsed.castableSpells) {
-      const key = (sp.name || "Unknown Spell").toLowerCase().trim();
-      if (!uniqueSpells.has(key)) {
-        uniqueSpells.set(key, sp); // keep first occurrence
-      }
-    }
-
-    for (const [, spellData] of uniqueSpells) {
-      try {
-        // 1. Search compendiums & world items for existing spell
-        let spellUuid = await findSpellByName(spellData.name);
-
-        // 2. Create new spell only if not found anywhere
-        if (!spellUuid) {
-          const newSpell = await Item.create({
-            name: spellData.name || "Unknown Spell",
-            type: "spell",
-            system: {
-              level: spellData.level ?? 1,
-              school: normalizeSchool(spellData.school || "evocation"),
-              description: { value: spellData.description || "" },
-              preparation: { mode: "atwill" }
-            }
-          });
-          spellUuid = newSpell.uuid;
-        }
-
-        // 3. Build cast activity and add to item data
-        const castAct = buildCastActivity(
-          spellUuid,
-          spellData.chargeCost || 1,
-          `Cast ${spellData.name || "Spell"}`
-        );
-        newItemData.system.activities[castAct._id] = castAct;
-      } catch (err) {
-        console.error(`Error processing castable spell "${spellData.name}":`, err);
-      }
-    }
-  }
+  await applyCastableSpells(newItemData, parsed, config);
 
   // ---------- Description validation pass ----------
   // Scan the description text for mechanical effects that GPT didn't capture
