@@ -78,11 +78,11 @@ function openHistoryDialog() {
     rows = `<tr><td colspan="5" style="text-align:center; color:#888;">No items generated this session.</td></tr>`;
   } else {
     for (let i = history.length - 1; i >= 0; i--) {
-      const h = history[i];
-      const time = new Date(h.timestamp).toLocaleTimeString();
-      const typeIcon = h.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
-      const display = h.entryCount ? `${h.itemName} (${h.entryCount} entries)` : h.itemName;
-      const isRollTable = h.itemType === "rolltable";
+      const entry = history[i];
+      const time = new Date(entry.timestamp).toLocaleTimeString();
+      const typeIcon = entry.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
+      const display = entry.entryCount ? `${entry.itemName} (${entry.entryCount} entries)` : entry.itemName;
+      const isRollTable = entry.itemType === "rolltable";
       const regenButtons = isRollTable ? "—" : `
         <button class="regen-btn" data-action="name" data-idx="${i}" title="Regenerate Name"><i class="fas fa-pen"></i></button>
         <button class="regen-btn" data-action="image" data-idx="${i}" title="Regenerate Image"><i class="fas fa-image"></i></button>
@@ -90,8 +90,8 @@ function openHistoryDialog() {
       `;
       rows += `<tr>
         <td><i class="fas ${typeIcon}"></i> ${display}</td>
-        <td>${h.itemType}</td>
-        <td>${h.rarity || "—"}</td>
+        <td>${entry.itemType}</td>
+        <td>${entry.rarity || "—"}</td>
         <td>${time}</td>
         <td>${regenButtons}</td>
       </tr>`;
@@ -154,19 +154,19 @@ function openHistoryDialog() {
         btn.addEventListener("click", async (e) => {
           const action = btn.dataset.action;
           const idx = parseInt(btn.dataset.idx, 10);
-          const h = history[idx];
-          if (!h) return;
+          const entry = history[idx];
+          if (!entry) return;
 
           // Find the existing item in the world
-          const item = game.items.get(h.itemId);
+          const item = game.items.get(entry.itemId);
           if (!item) {
-            ui.notifications.warn(`Item "${h.itemName}" no longer exists in this world.`);
+            ui.notifications.warn(`Item "${entry.itemName}" no longer exists in this world.`);
             return;
           }
 
           // Use fresh config for current settings
           const config = buildConfig();
-          const combined = h.prompt + (h.explicitType ? " - " + h.explicitType : "");
+          const combined = entry.prompt + (entry.explicitType ? " - " + entry.explicitType : "");
 
           // Disable button and show spinner
           btn.disabled = true;
@@ -178,19 +178,19 @@ function openHistoryDialog() {
               const newName = await generateItemName(combined, config);
               const refined = await ensureItemName(newName, item.system.description.value, config);
               await item.update({ name: refined });
-              h.itemName = refined;
+              entry.itemName = refined;
               ui.notifications.info(`Name updated: ${refined}`);
             } else if (action === "image") {
               const newPath = await generateItemImage(combined, config);
               if (newPath) {
                 await item.update({ img: newPath });
-                h.imagePath = newPath;
+                entry.imagePath = newPath;
                 ui.notifications.info(`Image updated for "${item.name}"`);
               } else {
                 ui.notifications.warn("Image regeneration failed.");
               }
             } else if (action === "description") {
-              const rawJSON = await generateItemJSON(combined, config, h.explicitType || "");
+              const rawJSON = await generateItemJSON(combined, config, entry.explicitType || "");
               const parsed = await parseItemJSON(rawJSON, config);
               if (parsed.description) {
                 await item.update({ "system.description.value": parsed.description });

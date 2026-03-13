@@ -89,7 +89,6 @@ export function fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt, ex
   const match = desc.match(nameRegex);
   if (match && match[1]) {
     let extractedName = match[1].trim();
-    console.log("Extracted name from description:", extractedName);
     parsed.description = desc.replace(nameRegex, "").trim();
     itemName = extractedName;
     nameLC = itemName.toLowerCase();
@@ -100,12 +99,10 @@ export function fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt, ex
       const unwanted = ["dagger", "helm", "amulet", "staff", "crossbow"];
       for (let term of unwanted) {
         if (nameLC.includes(term)) {
-          console.log(`Replacing '${term}' in item name with 'sword'.`);
           itemName = itemName.replace(new RegExp(term, "gi"), "sword");
           nameLC = itemName.toLowerCase();
         }
         if (descLC.includes(term)) {
-          console.log(`Replacing '${term}' in item description with 'sword'.`);
           parsed.description = parsed.description.replace(new RegExp(term, "gi"), "sword");
           descLC = parsed.description.toLowerCase();
         }
@@ -138,26 +135,22 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
 
   // Spell: structured fields are definitive
   if (foundryItemType !== "spell" && parsed.level !== undefined && parsed.school) {
-    console.log(`Type override: spell (detected level + school fields, was "${foundryItemType}")`);
     foundryItemType = "spell";
   }
 
   // Feat: structured fields or keyword (but only override non-weapon/non-spell)
   if (!["weapon", "spell"].includes(foundryItemType) && (parsed.featType || combinedLC.includes("feat"))) {
-    console.log(`Type override: feat (detected featType field or keyword, was "${foundryItemType}")`);
     foundryItemType = "feat";
   }
 
   // Weapon: name keywords — always override non-weapon types
   if (foundryItemType !== "weapon" && WEAPON_KEYWORDS.some(term => hasWord(nameLC, term))) {
-    console.log(`Type override: weapon (name keyword match, was "${foundryItemType}")`);
     foundryItemType = "weapon";
   }
 
   // Weapon: description keywords — override if not already weapon/spell/feat
   if (!["weapon", "spell", "feat"].includes(foundryItemType)) {
     if (descBonuses.weaponHint || descWeaponKeywords.some(term => hasWord(descLC, term))) {
-      console.log(`Type override: weapon (description keyword match, was "${foundryItemType}")`);
       foundryItemType = "weapon";
     }
   }
@@ -222,6 +215,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     : await ensureItemName(generatedName, finalDesc, config);
   updateProgressBar(80);
 
+  // Pre-compute lowercase variants used by type detection and field resolution
+  const nameLC = refinedName.toLowerCase();
+  const descLC = finalDesc.toLowerCase();
+
   // ---------- Determine the Foundry item type ----------
   // Three-stage resolution:
   //   1. Explicit type from the UI dropdown (highest priority)
@@ -266,7 +263,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       const consumableKeywords = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
       if (consumableKeywords.some(term => combinedLC.includes(term))) {
         foundryItemType = "consumable";
-        console.log("Type override: consumable (keyword match)");
       }
     }
 
@@ -309,7 +305,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     if (gptType) {
       gptType.value = hint.classification;
       gptType.baseItem = hint.baseItem;
-      console.log("PHB hint set classification:", hint.classification, "baseItem:", hint.baseItem);
     }
   }
 
@@ -349,7 +344,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // ---------- Cost: GPT > weapon defaults > fallback ----------
     if (!parsed.price && hint && hint.cost) {
       newItemData.system.price = { value: hint.cost.value, denomination: hint.cost.denomination };
-      console.log("Cost filled from weapon defaults:", hint.cost);
     }
   }
 
@@ -383,7 +377,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
             }
             return abbr;
           }), ...enchantments];
-      console.log("Weapon properties from PHB defaults (enchantments preserved):", weaponProps);
     }
     newItemData.system.properties = weaponProps;
 
@@ -397,13 +390,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       || (!config.isDnd5eV4 && (!damageData.parts || damageData.parts.length === 0));
 
     if (isDamageEmpty) {
-      console.log("Damage missing from GPT JSON, checking description...");
-
       if (descBonuses.damage) {
         // Description had damage info like "deals 1d8 slashing damage"
         const descDamage = { dice: descBonuses.damage.formula, type: descBonuses.damage.type };
         damageData = transformWeaponDamage(descDamage, config.isDnd5eV4);
-        console.log("Damage filled from description:", damageData);
       } else if (hint && hint.damage) {
         // Fall back to PHB weapon defaults (e.g., longsword = 1d8 slashing)
         const def = hint.damage;
@@ -419,14 +409,12 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         } else {
           damageData = { parts: [[`${def.number}d${def.denomination}`, def.type]] };
         }
-        console.log("Damage filled from PHB weapon defaults:", damageData);
       } else {
         // Fall back to compendium lookup (for homebrew/exotic weapons not in PHB tables)
         try {
           const compDefaults = await getCompendiumDefaults(refinedName, "weapon");
           if (compDefaults?.damage) {
             damageData = compDefaults.damage;
-            console.log("Damage filled from compendium defaults:", damageData);
           }
         } catch (err) {
           // Compendium fallback is optional — continue without it
@@ -456,7 +444,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         if (!newItemData.system.properties.includes("ver")) {
           newItemData.system.properties.push("ver");
         }
-        console.log("Staff detected — baseItem set to 'quarterstaff', type 'simpleM'");
       }
 
       // --- Magical staff properties: staffs with spells get "foc" (focus) + "mgc" (magical) ---
@@ -470,7 +457,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         if (!newItemData.system.properties.includes("mgc")) {
           newItemData.system.properties.push("mgc");
         }
-        console.log("Magical staff: added 'foc' and 'mgc' properties.");
       }
 
       // ---------- Range: GPT (if valid) > weapon defaults > generic fallback ----------
@@ -481,7 +467,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       } else if (hint && hint.range) {
         // Use PHB-accurate range (e.g., longbow 150/600, dagger 20/60, longsword 5ft)
         newItemData.system.range = { ...hint.range };
-        console.log("Range filled from weapon defaults:", hint.range);
       } else {
         const isRanged = typeCode.endsWith("R");
         newItemData.system.range = isRanged
@@ -494,7 +479,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         newItemData.system.magicalBonus = Number(parsed.magicalBonus);
       } else if (descBonuses.magicalBonus !== null) {
         newItemData.system.magicalBonus = descBonuses.magicalBonus;
-        console.log("Magical bonus set from description:", descBonuses.magicalBonus);
       }
 
       // Rarity fallback: infer from rarity when both GPT JSON and description scan missed it
@@ -502,7 +486,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         const rarityBonus = inferMagicalBonusFromRarity(parsed.rarity);
         if (rarityBonus > 0) {
           newItemData.system.magicalBonus = rarityBonus;
-          console.log("Weapon magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
         }
       }
 
@@ -510,7 +493,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       if (newItemData.system.magicalBonus && newItemData.system.magicalBonus > 0) {
         if (!newItemData.system.properties.includes("mgc")) {
           newItemData.system.properties.push("mgc");
-          console.log("Auto-added 'mgc' property for magical weapon.");
         }
       }
 
@@ -534,13 +516,11 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
             bonus: baseComp.bonus,
             type: damageType
           };
-          console.log("Versatile damage using PHB default die:", hint.versatileDie);
         }
 
         const versatile = buildVersatileDamage(gptVersatile, baseComp, damageType);
         if (versatile) {
           newItemData.system.damage.versatile = versatile;
-          console.log("Versatile damage set:", versatile);
         }
       }
 
@@ -550,7 +530,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       // has no mechanical effect under Legacy (2014) rules, so it's safe to always set.
       if (hint && hint.mastery) {
         newItemData.system.mastery = hint.mastery;
-        console.log("Weapon mastery set from defaults:", hint.mastery);
       }
     } else {
       // v3: system.type is the full object { value: "simpleM", baseItem: "longsword" }
@@ -737,7 +716,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // known armor types and use PHB-accurate defaults.
     const armorHint = parseDescriptionForArmor(refinedName + " " + finalDesc + " " + itemPrompt);
     if (armorHint) {
-      console.log("Armor identified from description:", armorHint);
     }
 
     // Armor type: PHB defaults > GPT > fallback
@@ -761,7 +739,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       acValue = Number(parsed.ac);
     } else if (armorHint) {
       acValue = armorHint.ac;
-      console.log("AC filled from PHB armor defaults:", acValue);
     } else {
       // Try compendium as fallback before generic default
       let compAC = null;
@@ -769,7 +746,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         const compDefaults = await getCompendiumDefaults(refinedName, "equipment");
         if (compDefaults?.armor?.value) {
           compAC = compDefaults.armor.value;
-          console.log("AC filled from compendium defaults:", compAC);
         }
       } catch (err) { /* optional fallback */ }
       acValue = compAC || (armorType === "shield" ? 2 : 14);
@@ -804,7 +780,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       strengthReq = Number(parsed.strengthRequirement);
     } else if (armorHint) {
       strengthReq = armorHint.strengthRequirement;
-      if (strengthReq > 0) console.log("STR requirement from PHB defaults:", strengthReq);
     } else {
       strengthReq = armorType === "heavy" ? 13 : 0;
     }
@@ -822,7 +797,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // Cost: GPT > PHB defaults
     if (armorHint && armorHint.cost && !parsed.price) {
       newItemData.system.price = { value: armorHint.cost.value, denomination: armorHint.cost.denomination };
-      console.log("Cost filled from PHB armor defaults:", armorHint.cost);
     }
 
     if (config.isDnd5eV4) {
@@ -831,7 +805,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       let armorBaseItem = "";
       if (armorHint && armorHint.baseItem) {
         armorBaseItem = armorHint.baseItem;
-        console.log("Armor baseItem set from PHB defaults:", armorHint.baseItem);
       } else if (parsed.baseItem) {
         armorBaseItem = parsed.baseItem.toLowerCase().replace(/\s+/g, "");
       }
@@ -857,7 +830,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
           if (newItemData.system.armor) {
             newItemData.system.armor.magicalBonus = rarityBonus;
           }
-          console.log("Armor magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
         }
       }
 
@@ -887,8 +859,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Also handle magical bonus + mgc property for equipment items.
 
   if (!isArmorItem && foundryItemType === "equipment") {
-    const nameLC = refinedName.toLowerCase();
-    const descLC = finalDesc.toLowerCase();
     const combined = nameLC + " " + descLC;
 
     if (config.isDnd5eV4) {
@@ -925,7 +895,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     } else if (descBonuses.magicalBonus !== null) {
       if (config.isDnd5eV4) {
         newItemData.system.magicalBonus = descBonuses.magicalBonus;
-        console.log("Equipment magical bonus set from description:", descBonuses.magicalBonus);
       }
     }
 
@@ -934,7 +903,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
       const rarityBonus = inferMagicalBonusFromRarity(parsed.rarity);
       if (rarityBonus > 0) {
         newItemData.system.magicalBonus = rarityBonus;
-        console.log("Equipment magical bonus inferred from rarity:", parsed.rarity, "=>", rarityBonus);
       }
     }
 
@@ -961,8 +929,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Auto-detect consumable subtype from name/description when GPT doesn't specify one.
 
   if (foundryItemType === "consumable") {
-    const nameLC = refinedName.toLowerCase();
-    const descLC = finalDesc.toLowerCase();
     const combined = nameLC + " " + descLC;
 
     let consType = "";
@@ -1006,8 +972,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Auto-detect from name/description.
 
   if (foundryItemType === "tool") {
-    const nameLC = refinedName.toLowerCase();
-    const descLC = finalDesc.toLowerCase();
     const combined = nameLC + " " + descLC;
 
     if (config.isDnd5eV4) {
@@ -1049,8 +1013,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Auto-detect from name/description.
 
   if (foundryItemType === "loot") {
-    const nameLC = refinedName.toLowerCase();
-    const descLC = finalDesc.toLowerCase();
     const combined = nameLC + " " + descLC;
 
     if (config.isDnd5eV4) {
@@ -1097,7 +1059,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         }
       }
 
-      console.log("Weapon activities created:", Object.keys(newItemData.system.activities).length);
     }
 
     // SPELLS: save / attack / heal / utility activity
@@ -1184,7 +1145,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         }
       }
 
-      console.log("Spell activities created:", Object.keys(newItemData.system.activities).length);
     }
 
     // CONSUMABLES: activities for potions, foods, and other consumables
@@ -1223,13 +1183,11 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
           healNum = def.num;
           healDenom = def.die;
           healBonus = def.bonus;
-          console.log(`No dice formula in description — using default heal for ${rarity}: ${healNum}d${healDenom}+${healBonus}`);
         }
         const potionHealActivity = buildHealActivity(healNum, healDenom, healBonus, consumptionTargets);
         potionHealActivity.activation = { type: "action", override: false };
         newItemData.system.activities[potionHealActivity._id] = potionHealActivity;
         activityCreated = true;
-        console.log("Consumable heal activity created.");
       }
 
       // Non-healing consumables — create a utility "Use" activity so the item is usable
@@ -1241,7 +1199,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
           targets: consumptionTargets
         };
         newItemData.system.activities[useActivity._id] = useActivity;
-        console.log("Consumable utility activity created.");
       }
 
       // Set uses for consumables with autoDestroy
@@ -1267,18 +1224,17 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     }
 
     newItemData.effects = newItemData.effects || [];
-    for (const me of parsed.mechanicalEffects) {
-      if (isArmorForEffects && ["ac", "stealth"].includes(me.target?.toLowerCase())) {
-        console.log(`Skipping armor-system effect "${me.name}" (target: ${me.target}) — handled by armor fields.`);
+    for (const mechEffect of parsed.mechanicalEffects) {
+      if (isArmorForEffects && ["ac", "stealth"].includes(mechEffect.target?.toLowerCase())) {
         continue;
       }
 
       const effChanges = [];
-      const mapped = mapEffectChange(me.type, me.target, me.value);
+      const mapped = mapEffectChange(mechEffect.type, mechEffect.target, mechEffect.value);
       if (mapped) effChanges.push(mapped);
 
       if (effChanges.length > 0) {
-        const effect = buildActiveEffect(me.name || "Effect", effChanges, {
+        const effect = buildActiveEffect(mechEffect.name || "Effect", effChanges, {
           transfer: isConsumable ? false : true,
           duration: isConsumable ? consumableDuration : {},
           img: newItemData.img
@@ -1295,7 +1251,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         }
       }
     }
-    console.log("Active Effects created:", newItemData.effects.length);
   }
 
   // --- Charges for items with spell-casting abilities ---
@@ -1309,7 +1264,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
         formula: parsed.charges.recovery.formula || "1d6"
       }] : []
     };
-    console.log("Item charges set:", parsed.charges.max);
   }
 
   // ---------- Castable spells (staves, wands, rings, etc.) ----------
@@ -1346,7 +1300,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
             }
           });
           spellUuid = newSpell.uuid;
-          console.log(`Castable spell created: ${newSpell.name} (${spellUuid})`);
         }
 
         // 3. Build cast activity and add to item data
@@ -1356,7 +1309,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
           `Cast ${spellData.name || "Spell"}`
         );
         newItemData.system.activities[castAct._id] = castAct;
-        console.log(`Cast activity added: Cast ${spellData.name} (${spellData.chargeCost || 1} charges)`);
       } catch (err) {
         console.error(`Error processing castable spell "${spellData.name}":`, err);
       }
