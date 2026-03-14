@@ -238,9 +238,8 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
           // No type hints found — use a general-purpose prompt that lets GPT decide
           typePrompt = "Determine the most appropriate item type from the prompt. If it is a weapon, include weapon damage/properties/type fields. If it is equipment, describe its properties and any magical effects. Include 'itemType' in the JSON (one of 'weapon','armor','equipment','consumable','tool','loot','spell','feat'). ";
         }
-      } else {
-        typePrompt = "";
       }
+      // else: typePrompt remains "" from initialization
       break;
   }
 

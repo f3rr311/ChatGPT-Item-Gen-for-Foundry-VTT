@@ -668,9 +668,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     : await apiEnsureItemName(generatedName, finalDesc, config);
   updateProgressBar(80);
 
-  // Pre-compute lowercase variants used by type detection and field resolution
+  // Pre-compute lowercase variants used by type detection and subtype resolution
   const nameLC = refinedName.toLowerCase();
   const descLC = finalDesc.toLowerCase();
+  const searchText = nameLC + " " + descLC;
 
   // ---------- Determine the Foundry item type ----------
   // Three-stage resolution:
@@ -1274,8 +1275,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Also handle magical bonus + mgc property for equipment items.
 
   if (!isArmorItem && foundryItemType === "equipment") {
-    const searchText = nameLC + " " + descLC;
-
     if (config.isDnd5eV4) {
       newItemData.system.type = { value: resolveEquipmentSubtype(nameLC, searchText) };
     }
@@ -1321,7 +1320,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Consumable subtype ----------
 
   if (foundryItemType === "consumable") {
-    const searchText = nameLC + " " + descLC;
     const consType = resolveConsumableSubtype(searchText, parsed.itemType);
 
     if (config.isDnd5eV4) {
@@ -1346,14 +1344,12 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Tool subtype ----------
 
   if (foundryItemType === "tool" && config.isDnd5eV4) {
-    const searchText = nameLC + " " + descLC;
     newItemData.system.type = { value: resolveToolSubtype(searchText) };
   }
 
   // ---------- Loot subtype ----------
 
   if (foundryItemType === "loot" && config.isDnd5eV4) {
-    const searchText = nameLC + " " + descLC;
     newItemData.system.type = { value: resolveLootSubtype(searchText) };
   }
 
