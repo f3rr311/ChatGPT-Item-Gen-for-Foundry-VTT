@@ -5,7 +5,7 @@
 import { generateItemData } from '../generators/item-generator.js';
 import { createFoundryRollTableFromDialog } from '../generators/table-generator.js';
 import { openPreviewDialog } from './preview-dialog.js';
-import { showProgressBar, hideProgressBar } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot } from '../utils/ui-utils.js';
 
 // ---------- Prompt Templates ----------
 
@@ -96,7 +96,7 @@ export function openGenerateDialog(buildConfig, openHistoryDialogFn) {
         label: "Generate",
         callback: async (html) => {
           // Normalize html for both v12 (jQuery) and v13 (native element)
-          const root = html instanceof jQuery ? html[0] : html;
+          const root = resolveHtmlRoot(html);
           const objectType = root.querySelector("#ai-object-type").value;
           const desc = root.querySelector("#ai-description").value;
           const explicitType = root.querySelector("#ai-explicit-type").value;
@@ -131,7 +131,7 @@ export function openGenerateDialog(buildConfig, openHistoryDialogFn) {
     default: "generate",
     render: (html) => {
       // Normalize html for both v12 (jQuery) and v13 (native element)
-      const root = html instanceof jQuery ? html[0] : html;
+      const root = resolveHtmlRoot(html);
       const dialog = root.closest('.dialog');
       if (dialog) {
         dialog.classList.add('chatgpt-dialog');

@@ -49,6 +49,16 @@ function formatCost(dollars) {
   return `~$${dollars.toFixed(2)}`;
 }
 
+/**
+ * Normalize a Foundry dialog html parameter to a native DOM element.
+ * v12 passes jQuery, v13 passes native DOM — this handles both.
+ * @param {jQuery|HTMLElement} html — the html parameter from Dialog render/callback
+ * @returns {HTMLElement} native DOM element
+ */
+export function resolveHtmlRoot(html) {
+  return html instanceof jQuery ? html[0] : html;
+}
+
 export function showProgressBar() {
   // Reset per-item cost tracker at the start of each generation
   if (game.chatGPTItemGenerator?.currentCost) {
