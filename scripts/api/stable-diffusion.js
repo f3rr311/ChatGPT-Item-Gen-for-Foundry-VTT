@@ -60,7 +60,7 @@ export async function generateSDImage(prompt, config) {
   if (data && data.image) {
     imageBase64 = data.image;
   } else if (data && data.task_id) {
-    console.log("Stable Diffusion image is being generated. Polling for result...");
+    console.debug("Stable Diffusion image is being generated. Polling for result...");
     imageBase64 = await pollStableDiffusionStatus(data.task_id);
   }
 

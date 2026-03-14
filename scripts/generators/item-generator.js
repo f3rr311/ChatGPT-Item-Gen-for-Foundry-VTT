@@ -869,7 +869,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   if (foundryItemType === "spell") {
     // Scan description for fallback hints (like weapon description scanning)
     const spellHints = parseSpellDescription(finalDesc);
-    console.log("Spell description scan results:", spellHints);
+    console.debug("Spell description scan results:", spellHints);
 
     // --- Level ---
     let spellLevel = parseInt(parsed.level, 10);

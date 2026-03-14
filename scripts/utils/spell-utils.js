@@ -577,7 +577,7 @@ export async function findSpellByName(spellName) {
     i.type === "spell" && i.name.toLowerCase() === nameLower
   );
   if (worldSpell) {
-    console.log(`findSpellByName: Found "${spellName}" in world items`);
+    console.debug(`findSpellByName: Found "${spellName}" in world items`);
     return worldSpell.uuid;
   }
 
@@ -593,7 +593,7 @@ export async function findSpellByName(spellName) {
         // Import the spell from the compendium into the world
         const compendiumDoc = await pack.getDocument(match._id);
         const imported = await Item.create(compendiumDoc.toObject());
-        console.log(`findSpellByName: Imported "${spellName}" from ${pack.collection} → ${imported.uuid}`);
+        console.debug(`findSpellByName: Imported "${spellName}" from ${pack.collection} → ${imported.uuid}`);
         return imported.uuid;
       }
     } catch (err) {
@@ -602,6 +602,6 @@ export async function findSpellByName(spellName) {
     }
   }
 
-  console.log(`findSpellByName: "${spellName}" not found in any compendium`);
+  console.debug(`findSpellByName: "${spellName}" not found in any compendium`);
   return null;
 }
