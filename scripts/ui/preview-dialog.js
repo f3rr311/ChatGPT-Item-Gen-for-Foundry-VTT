@@ -301,7 +301,7 @@ export function openPreviewDialog(result) {
               regenDesc.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
               try {
                 const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
-                const rawJSON = await generateItemJSON(combined, currentResult.config, currentResult.explicitType);
+                const rawJSON = await generateItemJSON(combined, currentResult.config, currentResult.explicitType) ?? "{}";
                 // Parse the JSON to extract just the description
                 const parsed = await parseItemJSON(rawJSON, currentResult.config);
                 if (parsed.description) {

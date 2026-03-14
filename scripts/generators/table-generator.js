@@ -19,7 +19,7 @@ const MAX_HISTORY_ENTRIES = 50;
 /**
  * Parse raw GPT JSON for a roll table, with multi-stage fallback recovery.
  * @param {string} rawJSON — raw JSON string from GPT
- * @param {object} config — GeneratorConfig (needed for fixInvalidJSON API call)
+ * @param {GeneratorConfig} config — GeneratorConfig (needed for fixInvalidJSON API call)
  * @returns {Promise<object>} parsed table object with name, formula, entries, etc.
  */
 export async function parseTableJSON(rawJSON, config) {
@@ -96,9 +96,9 @@ function buildTextResult(text, entry, isV13) {
  * Creates items for "items" table type, or text entries for "generic" tables.
  * @param {string} tableDesc — user's description of the roll table
  * @param {string} explicitType — forced item type for table entries (e.g. "Weapon")
- * @param {object} config — GeneratorConfig with apiKey, chatModel, isV13Core, etc.
+ * @param {GeneratorConfig} config — GeneratorConfig with apiKey, chatModel, isV13Core, etc.
  * @param {number} [entryCount=10] — number of table entries to generate
- * @returns {Promise<void>}
+ * @returns {Promise<void|null>}
  */
 export async function createFoundryRollTableFromDialog(tableDesc, explicitType, config, entryCount = 10) {
   if (!game.user.isGM) {
@@ -109,7 +109,7 @@ export async function createFoundryRollTableFromDialog(tableDesc, explicitType, 
   showProgressBar();
   updateProgressBar(10);
 
-  let rawTableJSON = await generateRollTableJSON(tableDesc, config, entryCount);
+  let rawTableJSON = await generateRollTableJSON(tableDesc, config, entryCount) ?? "{}";
   updateProgressBar(30);
 
   let parsedTable = await parseTableJSON(rawTableJSON, config);

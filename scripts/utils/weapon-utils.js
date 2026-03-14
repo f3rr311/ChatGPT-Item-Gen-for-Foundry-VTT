@@ -94,7 +94,6 @@ export const WEAPON_DEFAULTS = {
   "pistol":        { classification: "martialR", baseItem: "pistol",         damage: { number: 1, denomination: 10, type: "piercing" },  weight: 3,    cost: { value: 250, denomination: "gp" },properties: ["amm", "fir", "lod"],         range: { value: 30, long: 90, units: "ft" },  mastery: "vex" }
 };
 
-// Constants exported inline above
 
 // ---------- Formula Parsing ----------
 

@@ -46,7 +46,6 @@ const ARMOR_ALIASES = {
   "plate armor": "plate"
 };
 
-// ARMOR_DEFAULTS exported inline above
 
 /**
  * Scan an item description and/or name for armor type identification.

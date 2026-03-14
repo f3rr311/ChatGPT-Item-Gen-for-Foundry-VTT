@@ -38,14 +38,20 @@ export async function generateSDImage(prompt, config) {
     save_images: false
   };
 
-  const response = await fetch(sdEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(sdAPIKey && { "Authorization": `Bearer ${sdAPIKey}` })
-    },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch(sdEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(sdAPIKey && { "Authorization": `Bearer ${sdAPIKey}` })
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error("Stable Diffusion fetch failed:", err);
+    return null;
+  }
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "");
@@ -95,5 +101,6 @@ async function pollStableDiffusionStatus(taskId) {
     await new Promise(resolve => setTimeout(resolve, 3000));
     attempt++;
   }
+  console.warn(`Stable Diffusion polling timed out after ${maxAttempts} attempts for task ${taskId}`);
   return null;
 }

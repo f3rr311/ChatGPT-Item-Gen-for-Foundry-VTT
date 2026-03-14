@@ -3,8 +3,9 @@
  */
 
 import { apiGenerateItemName } from '../api/openai.js';
+import { NAME_KEYWORDS } from '../utils/type-keywords.js';
 
-const KEYWORDS = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
+const KEYWORDS = NAME_KEYWORDS;
 
 /** Non-physical item types that should skip weapon keyword forcing. */
 const NON_PHYSICAL_TYPES = ["- Spell", "- Feat", "- Background", "- Container"];
@@ -49,7 +50,7 @@ export function forceKeywordInName(name, prompt, desc = "") {
  */
 export async function generateItemName(prompt, config) {
   if (!prompt || !config) return "Unnamed";
-  const name = await apiGenerateItemName(prompt, config);
+  const name = await apiGenerateItemName(prompt, config) ?? "Unnamed";
   return forceKeywordInName(name, prompt, "");
 }
 

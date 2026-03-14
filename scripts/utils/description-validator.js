@@ -124,7 +124,7 @@ function tryAddExtraDamage(activities, formula, dmgType) {
  * @param {string} text — plain text description (HTML stripped)
  * @param {string} textLC — lowercase version of text
  * @param {string} foundryItemType — Foundry item type (e.g. "weapon", "equipment")
- * @param {object} config — module config (needs isDnd5eV4)
+ * @param {GeneratorConfig} config — module config (needs isDnd5eV4)
  * @param {string} img — item image path
  * @param {boolean} isArmorItem — true if armor (skips AC/stealth effects)
  * @param {string} weaponClassification — weapon classification code (e.g. "simpleM")
@@ -307,7 +307,7 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
  * @param {Array<object>} effects — the item's effects array (mutated)
  * @param {string} description — raw HTML description
  * @param {string} foundryItemType — Foundry item type
- * @param {object} config — module config (needs apiKey, isDnd5eV4)
+ * @param {GeneratorConfig} config — module config (needs apiKey, isDnd5eV4)
  * @param {string} img — item image path
  * @param {boolean} isArmorItem — true if armor
  * @returns {Promise<{addedAct: number, addedEff: number}>} count of added activities and effects
@@ -351,7 +351,7 @@ async function gptScan(activities, effects, description, foundryItemType, config
  * @param {object} newItemData  — the item data object being built (mutated)
  * @param {string} description  — the item description HTML
  * @param {string} foundryItemType — "weapon", "spell", "equipment", etc.
- * @param {object} config — module config (needs isDnd5eV4, apiKey)
+ * @param {GeneratorConfig} config — module config (needs isDnd5eV4, apiKey)
  */
 export async function validateAndEnrichItem(newItemData, description, foundryItemType, config) {
   if (!description) return;

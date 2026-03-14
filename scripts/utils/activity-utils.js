@@ -367,7 +367,6 @@ export const EFFECT_KEY_MAP = {
   "sense.truesight":      { key: "system.attributes.senses.truesight",     mode: 4 }
 };
 
-// EFFECT_KEY_MAP exported inline above
 
 /**
  * Look up a human-readable effect descriptor and return a Foundry change object.

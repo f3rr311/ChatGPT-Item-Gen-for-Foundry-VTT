@@ -131,7 +131,7 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
                 ui.notifications.warn("Image regeneration failed.");
               }
             } else if (action === "description") {
-              const rawJSON = await generateItemJSON(combined, config, entry.explicitType || "");
+              const rawJSON = await generateItemJSON(combined, config, entry.explicitType || "") ?? "{}";
               const parsed = await parseItemJSON(rawJSON, config);
               if (parsed.description) {
                 await item.update({ "system.description.value": parsed.description });

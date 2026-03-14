@@ -77,7 +77,7 @@ function inferMagicalBonusFromRarity(rarity) {
  * Parse raw GPT JSON for an item, with multi-stage fallback recovery.
  * Tries: direct parse → GPT fix → sanitizer → empty object.
  * @param {string} raw — raw JSON string from GPT
- * @param {object} config — GeneratorConfig (needed for fixInvalidJSON API call)
+ * @param {GeneratorConfig} config — GeneratorConfig (needed for fixInvalidJSON API call)
  * @returns {Promise<object>} parsed item data object (empty object on total failure)
  */
 export async function parseItemJSON(raw, config) {
@@ -532,7 +532,7 @@ function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
  * Looks up spells in the compendium first; creates new spell documents if not found.
  * @param {object} newItemData — the item data being built (mutated)
  * @param {object} parsed — the parsed GPT JSON with castableSpells array
- * @param {object} config — GeneratorConfig (needs isDnd5eV4)
+ * @param {GeneratorConfig} config — GeneratorConfig (needs isDnd5eV4)
  */
 async function applyCastableSpells(newItemData, parsed, config) {
   if (!parsed.castableSpells || !Array.isArray(parsed.castableSpells) || parsed.castableSpells.length === 0 || !config.isDnd5eV4) return;
@@ -583,7 +583,7 @@ async function applyCastableSpells(newItemData, parsed, config) {
  * Generate item data without creating the Foundry document.
  * Returns all the data needed to preview or create the item.
  * @param {string} itemPrompt — user's item description prompt
- * @param {object} config — GeneratorConfig with apiKey, chatModel, isDnd5eV4, etc.
+ * @param {GeneratorConfig} config — GeneratorConfig with apiKey, chatModel, isDnd5eV4, etc.
  * @param {string|null} [forcedName=null] — override item name (skips GPT name generation)
  * @param {string} [explicitType=""] — forced item type from UI dropdown (e.g. "Weapon", "Spell")
  * @returns {Promise<object|null>} generation result with newItemData, imagePath, refinedName,
@@ -610,7 +610,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   updateProgressBar(20);
 
   // Generate the item JSON and update progress to 40%
-  let rawItemJSON = await generateItemJSON(combined, config, explicitType);
+  let rawItemJSON = await generateItemJSON(combined, config, explicitType) ?? "{}";
   updateProgressBar(40);
 
   // Fix and parse the JSON (pass explicitType to guard weapon-specific name replacement)
@@ -1455,7 +1455,7 @@ export async function createItemFromData(result, folderOverride = null) {
  * Original entry point — generates item data and immediately creates the document.
  * Used by roll table generation and any existing callers.
  * @param {string} itemPrompt — user's item description prompt
- * @param {object} config — GeneratorConfig
+ * @param {GeneratorConfig} config — GeneratorConfig
  * @param {string|null} [forcedName=null] — override item name
  * @param {string} [explicitType=""] — forced item type from UI
  * @param {string|null} [folderOverride=null] — folder ID to place the item in

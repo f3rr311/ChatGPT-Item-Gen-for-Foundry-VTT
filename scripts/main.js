@@ -6,6 +6,7 @@
 import { registerSettings, MODULE_ID } from './settings.js';
 import { openGenerateDialog } from './ui/generate-dialog.js';
 import { openHistoryDialog } from './ui/history-dialog.js';
+import { NAME_KEYWORDS } from './utils/type-keywords.js';
 
 // ---------- Config Builder ----------
 
@@ -34,7 +35,7 @@ function buildConfig() {
     lightModel: game.settings.get(MODULE_ID, "lightModel") || "gpt-4.1-mini",
     imageModel: game.settings.get(MODULE_ID, "imageModel") || "gpt-image-1",
     imageFormat: game.settings.get(MODULE_ID, "imageFormat") || "png",
-    keywords: ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"],
+    keywords: NAME_KEYWORDS,
     imageFolder: MODULE_ID,
     // isNewerVersion(a, b) returns true if a > b.
     // !isNewerVersion("4.0.0", sysVer) => sysVer >= "4.0.0"
