@@ -281,7 +281,7 @@ async function gptScan(activities, effects, description, foundryItemType, config
   let addedAct = 0;
   let addedEff = 0;
 
-  const gptResult = await gptValidateItemEffects(description, foundryItemType, config, isArmorItem);
+  const gptResult = await gptValidateItemEffects(description, foundryItemType, isArmorItem, config);
   if (!gptResult) return { addedAct, addedEff };
 
   // Process mechanical effects from GPT

@@ -261,7 +261,7 @@ Generate a creative fantasy item name that reflects the details and flavor of th
  * @param {object} config — module config with apiKey, lightModel, chatModel
  * @returns {Promise<{mechanicalEffects: Array, extraDamage: Array}|null>}
  */
-export async function gptValidateItemEffects(description, itemType, config, isArmorItem = false) {
+export async function gptValidateItemEffects(description, itemType, isArmorItem, config) {
   if (!config.apiKey) return null;
 
   const plainDesc = description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
