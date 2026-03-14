@@ -2,7 +2,7 @@
  * History dialog — shows session generation history with regen buttons.
  */
 
-import { estimateCost, initDialogRoot } from '../utils/ui-utils.js';
+import { estimateCost, initDialogRoot, withRegenSpinner } from '../utils/ui-utils.js';
 import { generateItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { parseItemJSON } from '../generators/item-generator.js';
@@ -89,29 +89,22 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
 
       // Attach regen button click handlers
       root.querySelectorAll(".regen-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
+        btn.addEventListener("click", async () => {
           const action = btn.dataset.action;
           const idx = parseInt(btn.dataset.idx, 10);
           const entry = history[idx];
           if (!entry) return;
 
-          // Find the existing item in the world
           const item = game.items.get(entry.itemId);
           if (!item) {
             ui.notifications.warn(`Item "${entry.itemName}" no longer exists in this world.`);
             return;
           }
 
-          // Use fresh config for current settings
           const config = buildConfig();
           const combined = entry.prompt + (entry.explicitType ? " - " + entry.explicitType : "");
 
-          // Disable button and show spinner
-          btn.disabled = true;
-          const origHTML = btn.innerHTML;
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-          try {
+          await withRegenSpinner(btn, async () => {
             if (action === "name") {
               const newName = await generateItemName(combined, config);
               const refined = await apiEnsureItemName(newName, item.system.description.value, config);
@@ -137,13 +130,7 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
                 ui.notifications.warn("Description regeneration returned empty.");
               }
             }
-          } catch (err) {
-            console.error(`History regen (${action}) failed:`, err);
-            ui.notifications.error(`Regeneration failed: ${err.message}`);
-          }
-
-          btn.disabled = false;
-          btn.innerHTML = origHTML;
+          });
         });
       });
     }

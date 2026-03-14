@@ -6,7 +6,7 @@
 import { generateItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { generateItemData, createItemFromData, parseItemJSON } from '../generators/item-generator.js';
-import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot, enableSpellcheck } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot, enableSpellcheck, withRegenSpinner } from '../utils/ui-utils.js';
 
 // ---------- Stat Extraction ----------
 
@@ -247,70 +247,42 @@ export function openPreviewDialog(result) {
           const regenDesc = root.querySelector("#regen-desc");
 
           if (regenName) {
-            regenName.addEventListener("click", async () => {
-              regenName.disabled = true;
-              regenName.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-              try {
-                const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
-                const newName = await generateItemName(combined, currentResult.config);
-                const desc = currentResult.newItemData.system.description.value;
-                const refined = await apiEnsureItemName(newName, desc, currentResult.config);
-                root.querySelector("#preview-name").value = refined;
-              } catch (err) {
-                console.error("Name regeneration failed:", err);
-                ui.notifications.error("Name regeneration failed.");
-              }
-              regenName.disabled = false;
-              regenName.innerHTML = '<i class="fas fa-rotate"></i> Regen Name';
-            });
+            regenName.addEventListener("click", () => withRegenSpinner(regenName, async () => {
+              const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
+              const newName = await generateItemName(combined, currentResult.config);
+              const desc = currentResult.newItemData.system.description.value;
+              const refined = await apiEnsureItemName(newName, desc, currentResult.config);
+              root.querySelector("#preview-name").value = refined;
+            }));
           }
 
           if (regenImage) {
-            regenImage.addEventListener("click", async () => {
-              regenImage.disabled = true;
-              regenImage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-              try {
-                const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
-                const newPath = await generateItemImage(combined, currentResult.config);
-                if (newPath) {
-                  currentResult.imagePath = newPath;
-                  currentResult.newItemData.img = newPath;
-                  const img = root.querySelector("#preview-img");
-                  if (img) img.src = newPath;
-                } else {
-                  ui.notifications.warn("Image regeneration failed — keeping current image.");
-                }
-              } catch (err) {
-                console.error("Image regeneration failed:", err);
-                ui.notifications.error("Image regeneration failed.");
+            regenImage.addEventListener("click", () => withRegenSpinner(regenImage, async () => {
+              const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
+              const newPath = await generateItemImage(combined, currentResult.config);
+              if (newPath) {
+                currentResult.imagePath = newPath;
+                currentResult.newItemData.img = newPath;
+                const img = root.querySelector("#preview-img");
+                if (img) img.src = newPath;
+              } else {
+                ui.notifications.warn("Image regeneration failed — keeping current image.");
               }
-              regenImage.disabled = false;
-              regenImage.innerHTML = '<i class="fas fa-rotate"></i> Regen Image';
-            });
+            }));
           }
 
           if (regenDesc) {
-            regenDesc.addEventListener("click", async () => {
-              regenDesc.disabled = true;
-              regenDesc.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-              try {
-                const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
-                const rawJSON = await generateItemJSON(combined, currentResult.config, currentResult.explicitType) ?? "{}";
-                // Parse the JSON to extract just the description
-                const parsed = await parseItemJSON(rawJSON, currentResult.config);
-                if (parsed.description) {
-                  const textarea = root.querySelector("#preview-desc");
-                  if (textarea) textarea.value = parsed.description;
-                } else {
-                  ui.notifications.warn("Description regeneration returned empty — keeping current.");
-                }
-              } catch (err) {
-                console.error("Description regeneration failed:", err);
-                ui.notifications.error("Description regeneration failed.");
+            regenDesc.addEventListener("click", () => withRegenSpinner(regenDesc, async () => {
+              const combined = currentResult.prompt + (currentResult.explicitType ? " - " + currentResult.explicitType : "");
+              const rawJSON = await generateItemJSON(combined, currentResult.config, currentResult.explicitType) ?? "{}";
+              const parsed = await parseItemJSON(rawJSON, currentResult.config);
+              if (parsed.description) {
+                const textarea = root.querySelector("#preview-desc");
+                if (textarea) textarea.value = parsed.description;
+              } else {
+                ui.notifications.warn("Description regeneration returned empty — keeping current.");
               }
-              regenDesc.disabled = false;
-              regenDesc.innerHTML = '<i class="fas fa-rotate"></i> Regen Description';
-            });
+            }));
           }
         }
       }, { classes: ["chatgpt-dialog"], resizable: true }).render(true);

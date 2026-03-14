@@ -83,6 +83,26 @@ export function initDialogRoot(html) {
 }
 
 /**
+ * Wrap a button click handler with disable/spinner/restore boilerplate.
+ * Used by regen buttons in preview and history dialogs.
+ * @param {HTMLButtonElement} btn — the button element
+ * @param {Function} asyncFn — async function to execute while button is disabled
+ */
+export async function withRegenSpinner(btn, asyncFn) {
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  try {
+    await asyncFn();
+  } catch (err) {
+    console.error("Regeneration failed:", err);
+    ui.notifications.error(`Regeneration failed: ${err.message}`);
+  }
+  btn.disabled = false;
+  btn.innerHTML = origHTML;
+}
+
+/**
  * Enable native browser spellcheck and right-click context menu on input elements.
  * Foundry VTT intercepts contextmenu events; stopPropagation lets the browser handle them.
  * @param {HTMLElement} root — the dialog root element
