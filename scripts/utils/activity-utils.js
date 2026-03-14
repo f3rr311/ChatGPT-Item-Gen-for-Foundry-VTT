@@ -10,18 +10,14 @@
  * Effects go into the root effects[] array.
  */
 
-// ─────────────────────────────────────────────
-//  ID Generation
-// ─────────────────────────────────────────────
+// ---------- ID Generation ----------
 
 /** Generate a random 16-char alphanumeric ID (matches Foundry's format). */
 function generateId() {
   return foundry.utils.randomID(16);
 }
 
-// ─────────────────────────────────────────────
-//  Common Activity Template
-// ─────────────────────────────────────────────
+// ---------- Common Activity Template ----------
 
 /**
  * Base activity structure shared by all types.
@@ -54,9 +50,7 @@ function activityBase(type, overrides = {}) {
   };
 }
 
-// ─────────────────────────────────────────────
-//  Activity Builders
-// ─────────────────────────────────────────────
+// ---------- Activity Builders ----------
 
 /**
  * Build an attack activity for weapons or spell attacks.
@@ -196,9 +190,7 @@ export function buildCastActivity(spellUuid, chargeCost = 1, name = "") {
   });
 }
 
-// ─────────────────────────────────────────────
-//  Damage Part Builder
-// ─────────────────────────────────────────────
+// ---------- Damage Part Builder ----------
 
 /**
  * Build a single damage part object for use inside activities.
@@ -223,9 +215,7 @@ export function buildDamagePart(types, number, denomination, bonus = "", scaling
   };
 }
 
-// ─────────────────────────────────────────────
-//  Active Effect Builder
-// ─────────────────────────────────────────────
+// ---------- Active Effect Builder ----------
 
 /**
  * Build a Foundry Active Effect document.
@@ -272,9 +262,7 @@ export function buildActiveEffect(name, changes = [], options = {}) {
   };
 }
 
-// ─────────────────────────────────────────────
-//  Effect Key Map — human-readable → Foundry paths
-// ─────────────────────────────────────────────
+// ---------- Effect Key Map ----------
 
 /**
  * Maps simplified effect descriptors to Foundry data paths.
@@ -282,7 +270,7 @@ export function buildActiveEffect(name, changes = [], options = {}) {
  *
  * Modes: 0 = Custom/Add, 1 = Multiply, 2 = Override/Add, 3 = Downgrade, 4 = Upgrade, 5 = Override
  */
-const EFFECT_KEY_MAP = {
+export const EFFECT_KEY_MAP = {
   // --- Skill Advantages (mode 2 = override roll mode, value "1" = advantage) ---
   "advantage.acrobatics":      { key: "system.skills.acr.roll.mode", mode: 2, value: "1" },
   "advantage.animal handling": { key: "system.skills.ani.roll.mode", mode: 2, value: "1" },
@@ -379,8 +367,7 @@ const EFFECT_KEY_MAP = {
   "sense.truesight":      { key: "system.attributes.senses.truesight",     mode: 4 }
 };
 
-/** Export the map for direct use if needed. */
-export { EFFECT_KEY_MAP };
+// EFFECT_KEY_MAP exported inline above
 
 /**
  * Look up a human-readable effect descriptor and return a Foundry change object.

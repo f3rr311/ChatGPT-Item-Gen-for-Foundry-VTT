@@ -7,7 +7,7 @@
  * Used as authoritative fallback when GPT doesn't return structured data.
  */
 
-const ARMOR_DEFAULTS = {
+export const ARMOR_DEFAULTS = {
   // --- Light Armor ---
   "padded":          { armorType: "light",  ac: 11, dexCap: null, stealthDisadvantage: true,  strengthRequirement: 0,  weight: 8,  cost: { value: 5, denomination: "gp" },    baseItem: "padded" },
   "leather":         { armorType: "light",  ac: 11, dexCap: null, stealthDisadvantage: false, strengthRequirement: 0,  weight: 10, cost: { value: 10, denomination: "gp" },   baseItem: "leather" },
@@ -46,8 +46,7 @@ const ARMOR_ALIASES = {
   "plate armor": "plate"
 };
 
-/** Export the defaults table */
-export { ARMOR_DEFAULTS };
+// ARMOR_DEFAULTS exported inline above
 
 /**
  * Scan an item description and/or name for armor type identification.

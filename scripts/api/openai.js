@@ -66,6 +66,12 @@ async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens
 
 // ---------- JSON Fix (uses API) ----------
 
+/**
+ * Ask GPT to fix malformed JSON returned by a previous completion.
+ * @param {string} badJSON — the invalid JSON string to repair
+ * @param {object} config — GeneratorConfig with apiKey, chatModel, etc.
+ * @returns {Promise<string>} repaired JSON string, or the original if no API key
+ */
 export async function fixInvalidJSON(badJSON, config) {
   if (!config.apiKey) return badJSON;
   const result = await chatCompletion(
@@ -125,6 +131,13 @@ const ARMOR_PROMPT_BLOCK = "This is armor or a shield. The description MUST ment
 
 // ---------- Item JSON Generation ----------
 
+/**
+ * Generate item JSON via GPT chat completion.
+ * @param {string} prompt — user's item description prompt
+ * @param {object} config — GeneratorConfig with apiKey, chatModel, etc.
+ * @param {string} [explicitType=""] — forced item type (e.g. "Weapon", "Spell")
+ * @returns {Promise<string>} JSON string of item data, or "{}" on failure
+ */
 export async function generateItemJSON(prompt, config, explicitType = "") {
   if (!config.apiKey) return "{}";
   const typeNote = explicitType ? ` The item type is ${explicitType}.` : "";
@@ -200,6 +213,12 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
 
 // ---------- Item Name Generation ----------
 
+/**
+ * Generate a creative fantasy item name via GPT.
+ * @param {string} prompt — item description prompt
+ * @param {object} config — GeneratorConfig with apiKey, lightModel/chatModel
+ * @returns {Promise<string>} generated name, or "Unnamed" on failure
+ */
 export async function apiGenerateItemName(prompt, config) {
   if (!config.apiKey) return "Unnamed";
   const fixedNamePrompt = "Generate a creative, evocative fantasy item name. Use vivid or poetic language — names like 'Frostbite\\'s Lament', 'The Ashen Verdict', or 'Whisperwind Blade' rather than plain names like 'Fire Staff' or 'Magic Sword'. Even for well-known items, invent a unique name. Output only the name in plain text, no JSON.";
@@ -211,6 +230,13 @@ export async function apiGenerateItemName(prompt, config) {
 
 // ---------- Item Name Refinement ----------
 
+/**
+ * Ensure an item has a meaningful name; generate one from its description if blank.
+ * @param {string} currentName — existing name (returned as-is if non-empty)
+ * @param {string} description — item description to derive a name from
+ * @param {object} config — GeneratorConfig with apiKey, lightModel/chatModel
+ * @returns {Promise<string>} the current name or a GPT-generated one
+ */
 export async function apiEnsureItemName(currentName, description, config) {
   if (currentName && currentName.trim().length > 0) return currentName;
   const prompt = `The item description is: "${description}".
@@ -293,6 +319,13 @@ export async function gptValidateItemEffects(description, itemType, config, isAr
 
 // ---------- Magical Properties ----------
 
+/**
+ * Generate creative magical property descriptions for an item.
+ * @param {object} itemData — partial item data with name and type
+ * @param {number} count — number of properties to generate
+ * @param {object} config — GeneratorConfig with apiKey, chatModel
+ * @returns {Promise<string[]>} array of property description strings
+ */
 export async function generateMagicalProperties(itemData, count, config) {
   const prompt = `Generate ${count} creative, unique, and flavorful magical property descriptions for the following DnD 5e item. Each description should be a concise sentence describing a special ability or effect that fits the item details. Provide each property on its own line.
 
@@ -315,6 +348,13 @@ Output only the descriptions, one per line, with no numbering or extra commentar
 
 // ---------- Roll Table JSON Generation ----------
 
+/**
+ * Generate roll table entries as JSON via GPT.
+ * @param {string} userPrompt — description of the desired roll table
+ * @param {object} config — GeneratorConfig with apiKey, chatModel
+ * @param {number} [entryCount=10] — number of table entries to generate
+ * @returns {Promise<string>} JSON string with table entries, or "{}" on failure
+ */
 export async function generateRollTableJSON(userPrompt, config, entryCount = 10) {
   if (!config.apiKey) return "{}";
 
@@ -346,6 +386,12 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
 
 // ---------- Image Generation ----------
 
+/**
+ * Generate an item image using GPT Image or DALL-E (or Stable Diffusion if enabled).
+ * @param {string} prompt — item description for image generation
+ * @param {object} config — GeneratorConfig with apiKey, imageModel, imageSize
+ * @returns {Promise<string|null>} path to saved image file, or null on failure
+ */
 export async function generateItemImage(prompt, config) {
   // Check if Stable Diffusion is enabled
   const useSD = game.settings.get(MODULE_ID, "stableDiffusionEnabled");

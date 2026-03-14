@@ -1194,10 +1194,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Also handle magical bonus + mgc property for equipment items.
 
   if (!isArmorItem && foundryItemType === "equipment") {
-    const combined = nameLC + " " + descLC;
+    const searchText = nameLC + " " + descLC;
 
     if (config.isDnd5eV4) {
-      newItemData.system.type = { value: resolveEquipmentSubtype(nameLC, combined) };
+      newItemData.system.type = { value: resolveEquipmentSubtype(nameLC, searchText) };
     }
 
     // Magical bonus for equipment (e.g., +1 Ring of Protection, +2 Cloak of Protection)
@@ -1242,8 +1242,8 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Consumable subtype ----------
 
   if (foundryItemType === "consumable") {
-    const combined = nameLC + " " + descLC;
-    const consType = resolveConsumableSubtype(combined, parsed.itemType);
+    const searchText = nameLC + " " + descLC;
+    const consType = resolveConsumableSubtype(searchText, parsed.itemType);
 
     if (config.isDnd5eV4) {
       newItemData.system.type = { value: consType };
@@ -1268,15 +1268,15 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Tool subtype ----------
 
   if (foundryItemType === "tool" && config.isDnd5eV4) {
-    const combined = nameLC + " " + descLC;
-    newItemData.system.type = { value: resolveToolSubtype(combined) };
+    const searchText = nameLC + " " + descLC;
+    newItemData.system.type = { value: resolveToolSubtype(searchText) };
   }
 
   // ---------- Loot subtype ----------
 
   if (foundryItemType === "loot" && config.isDnd5eV4) {
-    const combined = nameLC + " " + descLC;
-    newItemData.system.type = { value: resolveLootSubtype(combined) };
+    const searchText = nameLC + " " + descLC;
+    newItemData.system.type = { value: resolveLootSubtype(searchText) };
   }
 
   // ---------- Activities (dnd5e v4+ only) ----------

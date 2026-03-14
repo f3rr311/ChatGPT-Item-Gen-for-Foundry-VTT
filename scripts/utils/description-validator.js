@@ -17,9 +17,7 @@ import {
 import { parseDamageFormula } from './weapon-utils.js';
 import { gptValidateItemEffects } from '../api/openai.js';
 
-// ─────────────────────────────────────────────
-//  Constants
-// ─────────────────────────────────────────────
+// ---------- Constants ----------
 
 const DAMAGE_TYPES = new Set([
   "acid", "bludgeoning", "cold", "fire", "force", "lightning",
@@ -53,9 +51,7 @@ function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
  */
 const ARMOR_SYSTEM_TARGETS = new Set(["ac", "stealth"]);
 
-// ─────────────────────────────────────────────
-//  Effect adder (shared by both passes)
-// ─────────────────────────────────────────────
+// ---------- Effect Adder (shared by both passes) ----------
 
 /**
  * Try to add an Active Effect from a mechanical effect descriptor.
@@ -108,9 +104,7 @@ function tryAddExtraDamage(activities, formula, dmgType) {
   return true;
 }
 
-// ─────────────────────────────────────────────
-//  Pass 1: Regex Scan
-// ─────────────────────────────────────────────
+// ---------- Pass 1: Regex Scan ----------
 
 function regexScan(activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification) {
   let addedAct = 0;
@@ -281,9 +275,7 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
   return { addedAct, addedEff };
 }
 
-// ─────────────────────────────────────────────
-//  Pass 2: GPT Informed Scan
-// ─────────────────────────────────────────────
+// ---------- Pass 2: GPT Informed Scan ----------
 
 async function gptScan(activities, effects, description, foundryItemType, config, img, isArmorItem) {
   let addedAct = 0;
@@ -314,9 +306,7 @@ async function gptScan(activities, effects, description, foundryItemType, config
   return { addedAct, addedEff };
 }
 
-// ─────────────────────────────────────────────
-//  Main Validator (public API)
-// ─────────────────────────────────────────────
+// ---------- Main Validator (public API) ----------
 
 /**
  * Scan the item description and add missing Activities / Active Effects.

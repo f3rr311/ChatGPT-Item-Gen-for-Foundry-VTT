@@ -7,7 +7,7 @@
  * dnd5e v4+/v5 uses abbreviated property codes stored in a Set.
  * GPT returns full-word property names; this map converts them.
  */
-const PROPERTY_ABBREV_MAP = {
+export const PROPERTY_ABBREV_MAP = {
   "adamantine": "ada",
   "ammunition": "amm",
   "finesse": "fin",
@@ -46,7 +46,7 @@ const VERSATILE_DIE_MAP = { 4: 6, 6: 8, 8: 10, 10: 12, 12: 12 };
  * the description identifies the weapon type, and these defaults fill in
  * all the correct stats automatically.
  */
-const WEAPON_DEFAULTS = {
+export const WEAPON_DEFAULTS = {
   // --- Simple Melee Weapons ---
   //                                                                                                                                                                                                                                                mastery (2024)
   "club":          { classification: "simpleM", baseItem: "club",         damage: { number: 1, denomination: 4, type: "bludgeoning" }, weight: 2,    cost: { value: 1, denomination: "sp" },  properties: ["lgt"],                   range: { value: 5, units: "ft" },              mastery: "slow" },
@@ -94,8 +94,7 @@ const WEAPON_DEFAULTS = {
   "pistol":        { classification: "martialR", baseItem: "pistol",         damage: { number: 1, denomination: 10, type: "piercing" },  weight: 3,    cost: { value: 250, denomination: "gp" },properties: ["amm", "fir", "lod"],         range: { value: 30, long: 90, units: "ft" },  mastery: "vex" }
 };
 
-/** Export constants for use in item-generator.js */
-export { WEAPON_DEFAULTS, PROPERTY_ABBREV_MAP };
+// Constants exported inline above
 
 // ---------- Formula Parsing ----------
 
