@@ -539,7 +539,7 @@ function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
 
     if (effChanges.length > 0) {
       const effect = buildActiveEffect(mechEffect.name || "Effect", effChanges, {
-        transfer: isConsumable ? false : true,
+        transfer: !isConsumable,
         duration: isConsumable ? consumableDuration : {},
         img: newItemData.img
       });
