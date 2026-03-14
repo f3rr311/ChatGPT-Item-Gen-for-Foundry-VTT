@@ -1,8 +1,12 @@
 # Update Logs
 
-## v2.2.1 — Major Refactor: Architecture, Code Health & UI Fixes
+## v2.2.1 — Rebrand, Major Refactor & UI Fixes
 
 *20 files changed, ~3,000 lines touched across 28 commits.*
+
+### 🎨 Rebrand
+
+* **Bytes AI Foundry** — Module display name changed from "ChatGPT Item Generator" to "Bytes AI Foundry" across the UI, documentation, and GitHub repo. The module ID (`chatgpt-item-generator`) is unchanged — existing installs update seamlessly.
 
 ### 🛠 Fixes
 
