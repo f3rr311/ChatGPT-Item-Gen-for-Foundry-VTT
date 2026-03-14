@@ -1,5 +1,26 @@
 # Update Logs
 
+## v2.2.1 — Code Health, UI Fixes & Architecture Improvements
+
+### 🛠 Fixes
+
+* **History Dialog Button Visibility:** Regen buttons (Name, Image, Desc) were invisible on highlighted rows due to Foundry v13 CSS layer priority. Switched to inline styles for reliable contrast in all themes.
+* **History Dialog Row Readability:** All rows now have explicit dark backgrounds and light text — no more unreadable entries on selection.
+* **History Dialog Default Width:** Dialog opens at 700px with a 680px minimum so the table layout isn't cramped on first open.
+* **GM Guard on Generator Dialog:** Non-GM users can no longer open the item generator dialog — previously only the footer button was gated.
+
+### ✨ Improvements
+
+* **Modular UI Architecture:** Generator and History dialogs extracted from `main.js` into dedicated `scripts/ui/generate-dialog.js` and `scripts/ui/history-dialog.js` modules.
+* **Shared Type Keywords:** Duplicated weapon/spell/feat keyword arrays consolidated into a shared `scripts/utils/type-keywords.js` module used by both `item-generator.js` and `openai.js`.
+* **Deduplicated Constants:** `WEIGHTLESS_TYPES` and `NO_MAGIC_PROPS_TYPES` merged into a single `NON_PHYSICAL_ITEM_TYPES` set.
+* **Type Safety JSDoc:** Added `GeneratorConfig` and `ParsedGPTItem` typedefs with full `@param`/`@returns` annotations on all major API and generator exports.
+* **Utility Extraction:** `withRegenSpinner` (regen button loading state) and `enableSpellcheck` (right-click spellcheck helper) extracted into `ui-utils.js` — shared by Preview and History dialogs.
+* **Empty Catch Blocks:** All silent `catch {}` blocks now log context via `console.debug`.
+* **Redundant Code Cleanup:** Removed narration-style console logs, simplified boolean ternaries, hoisted repeated variables, and removed dead assignments.
+
+---
+
 ## v2.2.0 — Item Preview, Regenerate Parts, Compendium Validation & AI Folders
 
 ### 🚀 New Features

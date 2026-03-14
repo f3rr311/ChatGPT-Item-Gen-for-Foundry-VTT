@@ -4,7 +4,7 @@
 # ChatGPT Item Generator for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-[![Version](https://img.shields.io/badge/Version-2.2.0-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
+[![Version](https://img.shields.io/badge/Version-2.2.1-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
 <br>
 
@@ -20,18 +20,15 @@
 
 > [!NOTE]
 >
-> ### 🆕 What's New in v2.2
+> ### 🆕 What's New in v2.2.1
 >
-> Version 2.2 adds **item preview**, **regeneration**, **compendium validation**, and **smarter organization**:
+> Bugfix and code-health release — improved UI reliability, modular architecture, and type safety:
 >
-> - **Item Preview Dialog** — See and edit name, description, image, and stats before the item is created
-> - **Regenerate Parts** — Don't like the name, image, or description? Regen each individually from Preview or History
-> - **Try Again / Variations** — Re-run the full generation with the same prompt until you're satisfied
-> - **Compendium Validation** — SRD cross-reference, duplicate detection, and smart defaults when GPT misses stats
-> - **AI Items Folder** — All items auto-placed in an "AI Items" folder; roll table items get named subfolders
-> - **Cost Estimation** — Estimated USD cost on the progress bar and session totals in History
-> - **Resizable Dialogs** — All dialogs can be resized by dragging
-> - **Right-Click Spellcheck** — Native browser spellcheck on all text fields
+> - **History Dialog Fixes** — Regen buttons now visible in all themes, better row contrast, wider default width
+> - **Modular UI** — Generator and History dialogs extracted into dedicated modules for cleaner architecture
+> - **Shared Constants** — Deduplicated type-detection keywords and item-type constants across the codebase
+> - **Type Safety** — Full JSDoc typedefs on all major API and generator exports
+> - **GM Guard** — Generator dialog properly gated for GM-only access
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 
@@ -206,6 +203,24 @@ All settings are found in **Game Settings > Configure Settings > ChatGPT Item Ge
 - **NPC Generation** — Full Actor creation with ability scores, HP, AC, CR, embedded attacks/features/spells, portrait + token images
 - **Pathfinder 2e Support** — System detection with PF2e-specific data models and prompts
 - Community contributions welcome — feedback and ideas are appreciated
+
+<br>
+
+---
+
+<br>
+
+## 📊 Code Health
+
+Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores reflect automated analysis and blind peer review.
+
+| Metric | Score |
+|--------|-------|
+| **Overall** | 87.4 / 100 |
+| **Mechanical (objective)** | 99.8 / 100 |
+| **Strict** | 75.4 / 100 |
+
+> **Note on test strategy score (42%):** Foundry VTT modules run inside the Foundry runtime and depend on globals (`game`, `Dialog`, `ui`, `canvas`, etc.) that cannot be imported in a standard Node test environment. Unit tests cover pure utility functions (154 tests, all passing), but integration and UI tests require a running Foundry server. The low test-strategy score reflects this platform limitation, not a lack of testing effort.
 
 <br>
 
