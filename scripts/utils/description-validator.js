@@ -150,7 +150,6 @@ function regexScan(ctx) {
       const atk = buildAttackActivity(atkType, "weapon", "");
       activities[atk._id] = atk;
       addedAct++;
-      console.debug("Validator: Added missing attack activity for weapon");
     }
   }
 

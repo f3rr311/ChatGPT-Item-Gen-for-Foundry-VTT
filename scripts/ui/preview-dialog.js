@@ -6,7 +6,7 @@
 import { generateItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { generateItemData, createItemFromData, parseItemJSON } from '../generators/item-generator.js';
-import { showProgressBar, hideProgressBar, resolveHtmlRoot } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot } from '../utils/ui-utils.js';
 
 // ---------- Stat Extraction ----------
 
@@ -226,11 +226,8 @@ export function openPreviewDialog(result) {
           if (!isRerendering) safeResolve(null);
         },
         render: (html) => {
-          const root = resolveHtmlRoot(html);
-          const dialog = root.closest('.dialog');
+          const { root, dialog } = initDialogRoot(html);
           if (dialog) {
-            dialog.classList.add('chatgpt-dialog');
-            dialog.style.height = 'auto';
             dialog.style.maxHeight = 'none';
             dialog.style.minWidth = '600px';
           }

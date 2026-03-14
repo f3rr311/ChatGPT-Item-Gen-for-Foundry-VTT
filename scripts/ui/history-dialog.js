@@ -2,7 +2,7 @@
  * History dialog — shows session generation history with regen buttons.
  */
 
-import { estimateCost, resolveHtmlRoot } from '../utils/ui-utils.js';
+import { estimateCost, initDialogRoot } from '../utils/ui-utils.js';
 import { generateItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { parseItemJSON } from '../generators/item-generator.js';
@@ -82,11 +82,8 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
     },
     default: "back",
     render: (html) => {
-      const root = resolveHtmlRoot(html);
-      const dialog = root.closest('.dialog');
+      const { root, dialog } = initDialogRoot(html);
       if (dialog) {
-        dialog.classList.add('chatgpt-dialog');
-        dialog.style.height = 'auto';
         dialog.style.minWidth = '580px';
       }
 

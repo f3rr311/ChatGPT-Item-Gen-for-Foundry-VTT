@@ -65,8 +65,28 @@ export function resolveHtmlRoot(html) {
   return html instanceof jQuery ? html[0] : html;
 }
 
-export function showProgressBar() {
-  // Reset per-item cost tracker at the start of each generation
+/**
+ * Common dialog initialization: resolve jQuery/DOM, locate the `.dialog`
+ * wrapper, apply the `chatgpt-dialog` class, and set `height: auto`.
+ * Returns `{ root, dialog }` for callers that need further customization.
+ * @param {jQuery|HTMLElement} html — the html parameter from Dialog render callback
+ * @returns {{ root: HTMLElement, dialog: HTMLElement|null }}
+ */
+export function initDialogRoot(html) {
+  const root = resolveHtmlRoot(html);
+  const dialog = root.closest('.dialog');
+  if (dialog) {
+    dialog.classList.add('chatgpt-dialog');
+    dialog.style.height = 'auto';
+  }
+  return { root, dialog };
+}
+
+/**
+ * Reset the per-item cost tracker to zero for a new generation cycle.
+ * Call this at the start of each item generation, before showProgressBar().
+ */
+export function resetItemCostTracker() {
   if (game.chatGPTItemGenerator?.currentCost) {
     const c = game.chatGPTItemGenerator.currentCost;
     c.promptTokens = 0;
@@ -75,6 +95,10 @@ export function showProgressBar() {
     c.apiCalls = 0;
     c.imageGenerations = 0;
   }
+}
+
+export function showProgressBar() {
+  resetItemCostTracker();
 
   if (!document.getElementById('ai-progress-container')) {
     const container = document.createElement('div');

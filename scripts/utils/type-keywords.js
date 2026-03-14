@@ -56,6 +56,14 @@ export const LOOT_KEYWORDS = [
 /** Name-forcing keywords — items whose prompts mention these get the keyword appended to the name. */
 export const NAME_KEYWORDS = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
 
+// ---------- Shared Module Constants ----------
+
+/** Default icon path used when no item image is available. */
+export const DEFAULT_ICON = "icons/svg/d20-highlight.svg";
+
+/** Maximum number of history entries retained per session. */
+export const MAX_HISTORY_ENTRIES = 50;
+
 /** Clothing/wearable keywords for equipment subtype resolution. */
 export const CLOTHING_KEYWORDS = [
   "clothing", "robe", "cloak", "boots", "gloves", "hat", "helm", "belt",

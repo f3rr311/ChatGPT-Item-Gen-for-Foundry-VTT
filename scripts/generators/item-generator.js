@@ -24,7 +24,8 @@ import { validateAndEnrichItem } from '../utils/description-validator.js';
 import { validateAgainstCompendium, checkDuplicates, getCompendiumDefaults } from '../utils/compendium-utils.js';
 import {
   WEAPON_KEYWORDS, ARMOR_KEYWORDS, CONSUMABLE_KEYWORDS,
-  TOOL_KEYWORDS, LOOT_KEYWORDS, CLOTHING_KEYWORDS
+  TOOL_KEYWORDS, LOOT_KEYWORDS, CLOTHING_KEYWORDS,
+  DEFAULT_ICON, MAX_HISTORY_ENTRIES
 } from '../utils/type-keywords.js';
 
 /** Word-boundary check to prevent substring false positives (e.g. "ring" in "charging") */
@@ -32,11 +33,6 @@ function hasWord(text, word) {
   return new RegExp(`\\b${word}\\b`, 'i').test(text);
 }
 
-/** Default icon path used when no item image is available. */
-const DEFAULT_ICON = "icons/svg/d20-highlight.svg";
-
-/** Maximum number of history entries retained per session. */
-const MAX_HISTORY_ENTRIES = 50;
 
 /** Valid weapon classification codes for dnd5e v4+ */
 const VALID_WEAPON_CODES = ["simpleM", "martialM", "simpleR", "martialR"];

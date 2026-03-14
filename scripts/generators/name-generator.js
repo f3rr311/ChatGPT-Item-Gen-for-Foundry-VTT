@@ -5,8 +5,6 @@
 import { apiGenerateItemName } from '../api/openai.js';
 import { NAME_KEYWORDS } from '../utils/type-keywords.js';
 
-const KEYWORDS = NAME_KEYWORDS;
-
 /** Non-physical item types that should skip weapon keyword forcing. */
 const NON_PHYSICAL_TYPES = ["- Spell", "- Feat", "- Background", "- Container"];
 
@@ -15,10 +13,9 @@ const NON_PHYSICAL_TYPES = ["- Spell", "- Feat", "- Background", "- Container"];
  * (e.g. "ring", "dagger") and strips unwanted words like "dragon".
  * @param {string} name — the GPT-generated item name
  * @param {string} prompt — the user's original prompt
- * @param {string} [desc=""] — item description (unused, reserved)
  * @returns {string} name with forced keywords applied
  */
-export function forceKeywordInName(name, prompt, desc = "") {
+export function forceKeywordInName(name, prompt) {
   if (!name || !prompt) return name || "Unnamed";
   const promptLC = prompt.toLowerCase();
 
@@ -31,7 +28,7 @@ export function forceKeywordInName(name, prompt, desc = "") {
   if (promptLC.includes("class change") && !name.toLowerCase().includes("class change")) {
     forcedName = forcedName + " Class Change";
   }
-  for (let keyword of KEYWORDS) {
+  for (const keyword of NAME_KEYWORDS) {
     if (promptLC.includes(keyword) && !name.toLowerCase().includes(keyword)) {
       forcedName = `${forcedName} ${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`;
     }
@@ -51,6 +48,6 @@ export function forceKeywordInName(name, prompt, desc = "") {
 export async function generateItemName(prompt, config) {
   if (!prompt || !config) return "Unnamed";
   const name = await apiGenerateItemName(prompt, config) ?? "Unnamed";
-  return forceKeywordInName(name, prompt, "");
+  return forceKeywordInName(name, prompt);
 }
 

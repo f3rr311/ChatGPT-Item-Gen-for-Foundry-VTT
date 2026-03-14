@@ -5,7 +5,7 @@
 import { generateItemData } from '../generators/item-generator.js';
 import { createFoundryRollTableFromDialog } from '../generators/table-generator.js';
 import { openPreviewDialog } from './preview-dialog.js';
-import { showProgressBar, hideProgressBar, resolveHtmlRoot } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot } from '../utils/ui-utils.js';
 
 // ---------- Prompt Templates ----------
 
@@ -130,12 +130,8 @@ export function openGenerateDialog(buildConfig, openHistoryDialogFn) {
     },
     default: "generate",
     render: (html) => {
-      // Normalize html for both v12 (jQuery) and v13 (native element)
-      const root = resolveHtmlRoot(html);
-      const dialog = root.closest('.dialog');
+      const { root, dialog } = initDialogRoot(html);
       if (dialog) {
-        dialog.classList.add('chatgpt-dialog');
-        dialog.style.height = 'auto';
         dialog.style.maxHeight = 'none';
         dialog.style.minWidth = '420px';
       }

@@ -7,12 +7,7 @@ import { generateRollTableJSON, fixInvalidJSON } from '../api/openai.js';
 import { extractValidJSON } from '../utils/json-utils.js';
 import { showProgressBar, updateProgressBar, hideProgressBar } from '../utils/ui-utils.js';
 import { createUniqueItemDoc, ensureItemFolder } from './item-generator.js';
-
-/** Default icon path used when no item image is available. */
-const DEFAULT_ICON = "icons/svg/d20-highlight.svg";
-
-/** Maximum number of history entries retained per session. */
-const MAX_HISTORY_ENTRIES = 50;
+import { DEFAULT_ICON, MAX_HISTORY_ENTRIES } from '../utils/type-keywords.js';
 
 // ---------- JSON Parsing ----------
 
