@@ -5,7 +5,7 @@
 import { generateItemData } from '../generators/item-generator.js';
 import { createFoundryRollTableFromDialog } from '../generators/table-generator.js';
 import { openPreviewDialog } from './preview-dialog.js';
-import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot, enableSpellcheck } from '../utils/ui-utils.js';
 
 // ---------- Prompt Templates ----------
 
@@ -170,11 +170,7 @@ export function openGenerateDialog(buildConfig, openHistoryDialogFn) {
       objectTypeSelect.addEventListener("change", updateVisibility);
       tableTypeSelect.addEventListener("change", updateVisibility);
 
-      // Enable native right-click spellcheck on text fields
-      root.querySelectorAll("#ai-description, #ai-name-override").forEach(el => {
-        el.setAttribute("spellcheck", "true");
-        el.addEventListener("contextmenu", e => e.stopPropagation());
-      });
+      enableSpellcheck(root, "#ai-description, #ai-name-override");
 
       // Template dropdown — populate fields on selection
       const templateSelect = root.querySelector("#ai-template");

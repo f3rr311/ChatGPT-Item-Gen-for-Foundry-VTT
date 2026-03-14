@@ -248,8 +248,6 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
   const fixedJSONInstructions = "Output valid JSON with double-quoted property names and no extra text.";
   const jsonPrompt = extraPrompt + " " + COMMON_PROMPT_BASE + " " + typePrompt + " " + fixedJSONInstructions + typeNote;
 
-  console.debug("Generated JSON prompt:", jsonPrompt);
-
   return await chatCompletion(config.apiKey, config.chatModel, jsonPrompt, prompt, maxTokens, true);
 }
 

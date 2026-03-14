@@ -6,7 +6,7 @@
 import { generateItemName } from '../generators/name-generator.js';
 import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { generateItemData, createItemFromData, parseItemJSON } from '../generators/item-generator.js';
-import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot } from '../utils/ui-utils.js';
+import { showProgressBar, hideProgressBar, resolveHtmlRoot, initDialogRoot, enableSpellcheck } from '../utils/ui-utils.js';
 
 // ---------- Stat Extraction ----------
 
@@ -238,10 +238,7 @@ export function openPreviewDialog(result) {
           const descInput = root.querySelector("#preview-desc");
           if (descInput) descInput.value = currentResult.newItemData.system?.description?.value || "";
 
-          root.querySelectorAll("#preview-name, #preview-desc").forEach(el => {
-            el.setAttribute("spellcheck", "true");
-            el.addEventListener("contextmenu", e => e.stopPropagation());
-          });
+          enableSpellcheck(root, "#preview-name, #preview-desc");
 
           // ---------- Regen button handlers ----------
 

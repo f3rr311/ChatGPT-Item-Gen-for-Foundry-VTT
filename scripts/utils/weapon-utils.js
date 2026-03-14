@@ -305,7 +305,6 @@ export function parseDescriptionBonuses(description) {
             cost: def.cost,
             range: def.range
           };
-          console.debug(`Generic weapon "${generic}" mapped to PHB weapon "${specific}".`);
           break;
         }
       }

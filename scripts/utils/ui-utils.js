@@ -83,6 +83,19 @@ export function initDialogRoot(html) {
 }
 
 /**
+ * Enable native browser spellcheck and right-click context menu on input elements.
+ * Foundry VTT intercepts contextmenu events; stopPropagation lets the browser handle them.
+ * @param {HTMLElement} root — the dialog root element
+ * @param {string} selector — CSS selector for inputs to enable spellcheck on
+ */
+export function enableSpellcheck(root, selector) {
+  root.querySelectorAll(selector).forEach(el => {
+    el.setAttribute("spellcheck", "true");
+    el.addEventListener("contextmenu", e => e.stopPropagation());
+  });
+}
+
+/**
  * Reset the per-item cost tracker to zero for a new generation cycle.
  * Call this at the start of each item generation, before showProgressBar().
  */

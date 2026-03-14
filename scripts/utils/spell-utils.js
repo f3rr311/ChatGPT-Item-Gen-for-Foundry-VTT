@@ -576,10 +576,7 @@ export async function findSpellByName(spellName) {
   const worldSpell = game.items.find(i =>
     i.type === "spell" && i.name.toLowerCase() === nameLower
   );
-  if (worldSpell) {
-    console.debug(`findSpellByName: Found "${spellName}" in world items`);
-    return worldSpell.uuid;
-  }
+  if (worldSpell) return worldSpell.uuid;
 
   // 2. Search compendium packs and import if found
   for (const pack of game.packs) {
@@ -593,7 +590,6 @@ export async function findSpellByName(spellName) {
         // Import the spell from the compendium into the world
         const compendiumDoc = await pack.getDocument(match._id);
         const imported = await Item.create(compendiumDoc.toObject());
-        console.debug(`findSpellByName: Imported "${spellName}" from ${pack.collection} → ${imported.uuid}`);
         return imported.uuid;
       }
     } catch (err) {
@@ -602,6 +598,5 @@ export async function findSpellByName(spellName) {
     }
   }
 
-  console.debug(`findSpellByName: "${spellName}" not found in any compendium`);
   return null;
 }
