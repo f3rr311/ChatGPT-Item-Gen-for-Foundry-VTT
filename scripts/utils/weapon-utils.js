@@ -36,6 +36,29 @@ const VALID_ABBREVS = new Set(Object.values(PROPERTY_ABBREV_MAP));
 const VERSATILE_DIE_MAP = { 4: 6, 6: 8, 8: 10, 10: 12, 12: 12 };
 
 /**
+ * Normalize a bonus value into a signed string ("+2", "-1") or "".
+ * GPT returns bonuses in various formats: number, string, with/without sign.
+ * @param {*} raw — raw bonus value from GPT (number, string, null, undefined)
+ * @returns {string} normalized bonus string (e.g. "+2", "-1", "")
+ */
+function normalizeBonus(raw) {
+  if (raw === undefined || raw === null || raw === "" || raw === 0) return "";
+  const str = String(raw);
+  return (str.startsWith("+") || str.startsWith("-")) ? str : "+" + str;
+}
+
+/**
+ * Parse a raw die value from GPT into a numeric denomination.
+ * Handles both numeric (8) and string ("d8") formats.
+ * @param {*} raw — raw die value from GPT
+ * @param {number} [fallback=8] — default denomination if parsing fails
+ * @returns {number} die denomination
+ */
+function parseDie(raw, fallback = 8) {
+  return Number(String(raw || "").replace(/^d/i, "")) || fallback;
+}
+
+/**
  * Comprehensive D&D 5e PHB weapon defaults table.
  * Sources: https://roll20.net/compendium/dnd5e/Weapons
  *          https://roll20.net/compendium/dnd5e/Rules:Weapons?expansion=33335
@@ -140,46 +163,30 @@ export function calculateVersatileDamage(baseComponents) {
  * @returns {{ number: number, denomination: number, bonus: string, types: string[] } | null}
  */
 export function buildVersatileDamage(gptVersatile, baseComponents, damageType) {
-  // If GPT provided explicit versatile data, use it
+  const types = [gptVersatile?.type || damageType || ""];
+
+  // GPT provided structured damage fields (number + die/denomination)
+  if (gptVersatile?.number !== undefined && (gptVersatile.die !== undefined || gptVersatile.denomination !== undefined)) {
+    return {
+      number: Number(gptVersatile.number) || 1,
+      denomination: parseDie(gptVersatile.denomination || gptVersatile.die, 10),
+      bonus: normalizeBonus(gptVersatile.bonus),
+      types
+    };
+  }
+
+  // GPT provided a formula string (e.g. "1d10+2")
   if (gptVersatile) {
-    if (gptVersatile.number !== undefined && (gptVersatile.die !== undefined || gptVersatile.denomination !== undefined)) {
-      let rawDie = gptVersatile.denomination || gptVersatile.die || "";
-      let denom = Number(String(rawDie).replace(/^d/i, "")) || 10;
-      let bonus = "";
-      if (gptVersatile.bonus !== undefined && gptVersatile.bonus !== null && gptVersatile.bonus !== "" && gptVersatile.bonus !== 0) {
-        bonus = String(gptVersatile.bonus);
-        if (!bonus.startsWith("+") && !bonus.startsWith("-")) bonus = "+" + bonus;
-      }
-      return {
-        number: Number(gptVersatile.number) || 1,
-        denomination: denom,
-        bonus: bonus,
-        types: [gptVersatile.type || damageType || ""]
-      };
-    }
-    // Try formula string
-    let formula = gptVersatile.formula || gptVersatile.dice || "";
-    let parsed = parseDamageFormula(formula);
+    const parsed = parseDamageFormula(gptVersatile.formula || gptVersatile.dice || "");
     if (parsed) {
-      return {
-        number: parsed.number,
-        denomination: parsed.denomination,
-        bonus: parsed.bonus,
-        types: [gptVersatile.type || damageType || ""]
-      };
+      return { number: parsed.number, denomination: parsed.denomination, bonus: parsed.bonus, types };
     }
   }
 
-  // Fallback: auto-calculate from base damage
-  if (!baseComponents) return null;
+  // Fallback: auto-calculate from base damage (standard D&D: one die size larger)
   const auto = calculateVersatileDamage(baseComponents);
   if (!auto) return null;
-  return {
-    number: auto.number,
-    denomination: auto.denomination,
-    bonus: auto.bonus,
-    types: damageType ? [damageType] : []
-  };
+  return { number: auto.number, denomination: auto.denomination, bonus: auto.bonus, types: damageType ? [damageType] : [] };
 }
 
 // ---------- Description Parsing ----------
@@ -319,104 +326,75 @@ export function parseDescriptionBonuses(description) {
 export function transformWeaponDamage(damage, useV4Format = false) {
   if (!damage) return useV4Format ? {} : { parts: [] };
 
-  // First, normalize the input to a formula + type pair
-  let formula = "";
-  let damageType = "";
-  // Track pre-parsed components if GPT provided structured damage
-  let preNumber = null;
-  let preDenomination = null;
-  let preBonus = null;
+  // Step 1: Normalize any GPT damage shape into { formula, damageType, components }
+  const normalized = normalizeDamageInput(damage);
 
+  // Step 2: Format for the target dnd5e version
+  if (!useV4Format) {
+    // v3 format: { parts: [["1d8", "slashing"]] }
+    if (normalized.passthrough) return normalized.passthrough;
+    return { parts: normalized.formula ? [[normalized.formula, normalized.damageType]] : [] };
+  }
+
+  // v4 format: { base: { number, denomination, bonus, types } }
+  const components = normalized.components || parseDamageFormula(normalized.formula);
+  if (!components) {
+    if (!normalized.formula) return {};
+    // Flat damage fallback (e.g., "5")
+    return { base: { number: null, denomination: null, bonus: normalized.formula, types: normalized.damageType ? [normalized.damageType] : [] } };
+  }
+  return { base: { number: components.number, denomination: components.denomination, bonus: components.bonus, types: normalized.damageType ? [normalized.damageType] : [] } };
+}
+
+/**
+ * Normalize GPT damage output (7 possible shapes) into a consistent internal form.
+ * @param {*} damage — raw damage data from GPT
+ * @returns {{ formula: string, damageType: string, components: object|null, passthrough: object|null }}
+ * @private
+ */
+function normalizeDamageInput(damage) {
+  // Shape 1: Array — [["1d8", "slashing"]]
   if (Array.isArray(damage)) {
-    // damage is already parts array like [["1d8", "slashing"]]
-    if (damage.length > 0 && Array.isArray(damage[0])) {
-      formula = damage[0][0] || "";
-      damageType = damage[0][1] || "";
-    }
-    if (!useV4Format) return { parts: damage };
-  } else if (damage.base && damage.base.number !== undefined && damage.base.denomination !== undefined) {
-    // Already in correct v4 format with individual fields — pass through
-    if (useV4Format) return damage;
-    // Convert to v3 formula for parts
+    const first = Array.isArray(damage[0]) ? damage[0] : [];
+    return { formula: first[0] || "", damageType: first[1] || "", components: null, passthrough: { parts: damage } };
+  }
+
+  // Shape 2: Already-correct v4 — { base: { number, denomination } }
+  if (damage.base?.number !== undefined && damage.base?.denomination !== undefined) {
     const f = `${damage.base.number}d${damage.base.denomination}${damage.base.bonus || ""}`;
-    const t = (damage.base.types && damage.base.types[0]) || "";
-    return { parts: f ? [[f, t]] : [] };
-  } else if (damage.base && damage.base.formula) {
-    // Old wrong v4 format with formula string — convert it
-    formula = damage.base.formula || "";
-    damageType = (damage.base.types && damage.base.types[0]) || "";
-    if (!useV4Format) return { parts: formula ? [[formula, damageType]] : [] };
-  } else if (damage.number !== undefined && (damage.denomination !== undefined || damage.die !== undefined)) {
-    // GPT returned pre-parsed structured damage: { number: 1, die: "d8", bonus: 2, type: "slashing" }
-    preNumber = Number(damage.number) || 1;
-    let rawDie = damage.denomination || damage.die || "";
-    preDenomination = Number(String(rawDie).replace(/^d/i, "")) || 8;
-    let rawBonus = damage.bonus;
-    if (rawBonus !== undefined && rawBonus !== null && rawBonus !== "" && rawBonus !== 0) {
-      preBonus = String(rawBonus);
-      if (!preBonus.startsWith("+") && !preBonus.startsWith("-")) preBonus = "+" + preBonus;
-    } else {
-      preBonus = "";
-    }
-    damageType = damage.type || "";
-    formula = `${preNumber}d${preDenomination}${preBonus}`;
-    if (!useV4Format) return { parts: [[formula, damageType]] };
-  } else if (damage.parts !== undefined) {
-    if (!Array.isArray(damage.parts)) {
-      damage.parts = [damage.parts];
-    }
-    if (damage.parts.length > 0 && Array.isArray(damage.parts[0])) {
-      formula = damage.parts[0][0] || "";
-      damageType = damage.parts[0][1] || "";
-    }
-    if (!useV4Format) return damage;
-  } else if (damage.dice || damage.formula) {
-    formula = damage.dice || damage.formula || "";
-    if (damage.modifier) {
-      let mod = damage.modifier.toString();
-      if (!mod.startsWith('+') && !mod.startsWith('-')) {
-        mod = '+' + mod;
-      }
-      formula += mod;
-    }
-    damageType = damage.type || "";
-    if (!useV4Format) return { parts: [[formula, damageType]] };
+    const t = damage.base.types?.[0] || "";
+    return { formula: f, damageType: t, components: damage.base, passthrough: damage };
   }
 
-  // Build the v4 format with individual fields
-  if (useV4Format) {
-    if (!formula && preNumber === null) return {};
-
-    let components;
-    if (preNumber !== null) {
-      components = { number: preNumber, denomination: preDenomination, bonus: preBonus };
-    } else {
-      components = parseDamageFormula(formula);
-    }
-
-    if (!components) {
-      // Fallback: formula didn't match NdN pattern (e.g., flat damage "5")
-      return {
-        base: {
-          number: null,
-          denomination: null,
-          bonus: formula,
-          types: damageType ? [damageType] : []
-        }
-      };
-    }
-
-    return {
-      base: {
-        number: components.number,
-        denomination: components.denomination,
-        bonus: components.bonus,
-        types: damageType ? [damageType] : []
-      }
-    };
+  // Shape 3: Wrong v4 — { base: { formula } }
+  if (damage.base?.formula) {
+    return { formula: damage.base.formula, damageType: damage.base.types?.[0] || "", components: null, passthrough: null };
   }
 
-  return { parts: formula ? [[formula, damageType]] : [] };
+  // Shape 4: Structured — { number, die/denomination, bonus, type }
+  if (damage.number !== undefined && (damage.denomination !== undefined || damage.die !== undefined)) {
+    const n = Number(damage.number) || 1;
+    const d = parseDie(damage.denomination || damage.die);
+    const b = normalizeBonus(damage.bonus);
+    return { formula: `${n}d${d}${b}`, damageType: damage.type || "", components: { number: n, denomination: d, bonus: b }, passthrough: null };
+  }
+
+  // Shape 5: Parts object — { parts: [...] }
+  if (damage.parts !== undefined) {
+    const parts = Array.isArray(damage.parts) ? damage.parts : [damage.parts];
+    const first = Array.isArray(parts[0]) ? parts[0] : [];
+    return { formula: first[0] || "", damageType: first[1] || "", components: null, passthrough: { parts } };
+  }
+
+  // Shape 6: Formula/dice string — { dice/formula, modifier, type }
+  if (damage.dice || damage.formula) {
+    let formula = damage.dice || damage.formula || "";
+    if (damage.modifier) formula += normalizeBonus(damage.modifier);
+    return { formula, damageType: damage.type || "", components: null, passthrough: null };
+  }
+
+  // Shape 7: Unknown — no recognized fields
+  return { formula: "", damageType: "", components: null, passthrough: null };
 }
 
 // ---------- Property Transformation ----------

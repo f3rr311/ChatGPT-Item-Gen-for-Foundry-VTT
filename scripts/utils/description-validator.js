@@ -118,19 +118,25 @@ function tryAddExtraDamage(activities, formula, dmgType) {
 // ---------- Pass 1: Regex Scan ----------
 
 /**
+ * @typedef {object} RegexScanContext
+ * @property {object} activities — the item's activities map (mutated)
+ * @property {Array<object>} effects — the item's effects array (mutated)
+ * @property {string} text — plain text description (HTML stripped)
+ * @property {string} textLC — lowercase version of text
+ * @property {string} foundryItemType — Foundry item type (e.g. "weapon", "equipment")
+ * @property {GeneratorConfig} config — module config (needs isDnd5eV4)
+ * @property {string} img — item image path
+ * @property {boolean} isArmorItem — true if armor (skips AC/stealth effects)
+ * @property {string} weaponClassification — weapon classification code (e.g. "simpleM")
+ */
+
+/**
  * Pass 1: scan item description with regex patterns to find mechanical effects.
- * @param {object} activities — the item's activities map (mutated)
- * @param {Array<object>} effects — the item's effects array (mutated)
- * @param {string} text — plain text description (HTML stripped)
- * @param {string} textLC — lowercase version of text
- * @param {string} foundryItemType — Foundry item type (e.g. "weapon", "equipment")
- * @param {GeneratorConfig} config — module config (needs isDnd5eV4)
- * @param {string} img — item image path
- * @param {boolean} isArmorItem — true if armor (skips AC/stealth effects)
- * @param {string} weaponClassification — weapon classification code (e.g. "simpleM")
+ * @param {RegexScanContext} ctx — context object with all scan parameters
  * @returns {{addedAct: number, addedEff: number}} count of added activities and effects
  */
-function regexScan(activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification) {
+function regexScan(ctx) {
+  const { activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification } = ctx;
   let addedAct = 0;
   let addedEff = 0;
 
@@ -376,7 +382,7 @@ export async function validateAndEnrichItem(newItemData, description, foundryIte
     ["light", "medium", "heavy", "natural", "shield"].includes(newItemData.system.type?.value);
 
   // Pass 1: Regex — fast, free, catches common patterns
-  const regexResults = regexScan(activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification);
+  const regexResults = regexScan({ activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification });
 
   // Pass 2: GPT — informed, catches nuanced phrasing regex misses
   const gptResults = await gptScan(activities, effects, description, foundryItemType, config, img, isArmorItem);

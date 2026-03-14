@@ -21,13 +21,19 @@ const IMAGE_PRICING = {
 
 /**
  * Estimate USD cost from a cost tracker object.
- * Uses the user's configured models from game settings.
+ * Model names can be passed explicitly or default to game.settings values.
+ * @param {object} costObj — token/image generation counts
+ * @param {object} [models] — optional model name overrides
+ * @param {string} [models.chatModel] — primary GPT model name
+ * @param {string} [models.lightModel] — lightweight GPT model name
+ * @param {string} [models.imageModel] — image generation model name
+ * @returns {number} estimated cost in USD
  */
-export function estimateCost(costObj) {
+export function estimateCost(costObj, models = {}) {
   if (!costObj) return 0;
-  const chatModel = game.settings.get(MODULE_ID, "chatModel") || "gpt-4.1";
-  const lightModel = game.settings.get(MODULE_ID, "lightModel") || "gpt-4.1-mini";
-  const imageModel = game.settings.get(MODULE_ID, "imageModel") || "gpt-image-1";
+  const chatModel = models.chatModel || game.settings.get(MODULE_ID, "chatModel") || "gpt-4.1";
+  const lightModel = models.lightModel || game.settings.get(MODULE_ID, "lightModel") || "gpt-4.1-mini";
+  const imageModel = models.imageModel || game.settings.get(MODULE_ID, "imageModel") || "gpt-image-1";
 
   // Blend chat + light model pricing (most calls use chatModel, name gen uses lightModel)
   // Approximate: ~70% of tokens go to chatModel, ~30% to lightModel

@@ -49,6 +49,39 @@ const NO_MAGIC_PROPS_TYPES = ["spell", "feat", "background"];
 const HIGH_RARITY = ["rare", "very rare", "legendary", "artifact"];
 
 /**
+ * Shape of the parsed GPT JSON for an item.
+ * GPT returns these fields with varying completeness — all are optional.
+ * @typedef {Object} ParsedGPTItem
+ * @property {string} [name] — item name
+ * @property {string} [type] — item type hint (e.g. "weapon", "spell", "potion")
+ * @property {string} [subtype] — specific subtype (e.g. "longsword", "healing", "abjuration")
+ * @property {string} [description] — HTML description of the item
+ * @property {string} [rarity] — D&D rarity (common, uncommon, rare, very rare, legendary, artifact)
+ * @property {number} [weight] — item weight in pounds
+ * @property {number} [cost] — item cost value
+ * @property {string} [costUnit] — cost denomination (gp, sp, cp, ep, pp)
+ * @property {string|boolean} [attunement] — attunement requirement
+ * @property {string|boolean} [magical] — whether item is magical
+ * @property {string|boolean} [magic] — alternate magical flag from GPT
+ * @property {*} [damage] — weapon damage in various GPT shapes (see normalizeDamageInput)
+ * @property {*} [versatile] — versatile damage data
+ * @property {string|string[]} [properties] — weapon properties
+ * @property {string} [weaponClassification] — weapon classification code
+ * @property {object} [armor] — armor data (ac, type, stealthDisadvantage, etc.)
+ * @property {object} [duration] — spell/effect duration
+ * @property {object} [range] — spell/weapon range
+ * @property {object} [target] — spell target info
+ * @property {object} [activation] — activation cost
+ * @property {string} [school] — spell school
+ * @property {number} [level] — spell level
+ * @property {object} [components] — spell components (V, S, M)
+ * @property {string} [materials] — spell material component description
+ * @property {object} [scaling] — spell scaling data
+ * @property {Array<object>} [effects] — Active Effects to apply
+ * @property {string} [effectDuration] — duration for consumable effects
+ */
+
+/**
  * Check if GPT flagged the item as magical via parsed.magical or parsed.magic.
  * @param {object} parsed — the parsed GPT JSON
  * @returns {boolean} true if GPT indicated the item is magical
@@ -78,7 +111,7 @@ function inferMagicalBonusFromRarity(rarity) {
  * Tries: direct parse → GPT fix → sanitizer → empty object.
  * @param {string} raw — raw JSON string from GPT
  * @param {GeneratorConfig} config — GeneratorConfig (needed for fixInvalidJSON API call)
- * @returns {Promise<object>} parsed item data object (empty object on total failure)
+ * @returns {Promise<ParsedGPTItem>} parsed item data (empty object on total failure)
  */
 export async function parseItemJSON(raw, config) {
   if (!raw || typeof raw !== "string") return {};
