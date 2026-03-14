@@ -22,13 +22,14 @@
 >
 > ### 🆕 What's New in v2.2.1
 >
-> Bugfix and code-health release — improved UI reliability, modular architecture, and type safety:
+> Major refactor — 20 files changed, ~3,000 lines across 28 commits:
 >
-> - **History Dialog Fixes** — Regen buttons now visible in all themes, better row contrast, wider default width
-> - **Modular UI** — Generator and History dialogs extracted into dedicated modules for cleaner architecture
-> - **Shared Constants** — Deduplicated type-detection keywords and item-type constants across the codebase
-> - **Type Safety** — Full JSDoc typedefs on all major API and generator exports
-> - **GM Guard** — Generator dialog properly gated for GM-only access
+> - **Architecture Overhaul** — `generateItemData` decomposed into focused helpers; dialogs extracted from `main.js` into dedicated UI modules
+> - **Shared Modules** — Type-detection keywords, magical detection, jQuery normalization, and regen spinner all consolidated into shared utilities
+> - **Type Safety** — Full JSDoc typedefs (`GeneratorConfig`, `ParsedGPTItem`) with `@param`/`@returns` on all major exports
+> - **Error Handling** — HTTP status checking on all API calls, standardized `null` failure returns, SD timeout notifications
+> - **UI Fixes** — History dialog button visibility, row contrast, and default width fixed for Foundry v13 CSS layers
+> - **154 Unit Tests** — Built from scratch with Vitest covering all utility modules
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 

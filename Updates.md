@@ -1,6 +1,8 @@
 # Update Logs
 
-## v2.2.1 — Code Health, UI Fixes & Architecture Improvements
+## v2.2.1 — Major Refactor: Architecture, Code Health & UI Fixes
+
+*20 files changed, ~3,000 lines touched across 28 commits.*
 
 ### 🛠 Fixes
 
@@ -8,16 +10,38 @@
 * **History Dialog Row Readability:** All rows now have explicit dark backgrounds and light text — no more unreadable entries on selection.
 * **History Dialog Default Width:** Dialog opens at 700px with a 680px minimum so the table layout isn't cramped on first open.
 * **GM Guard on Generator Dialog:** Non-GM users can no longer open the item generator dialog — previously only the footer button was gated.
+* **HTTP Error Checking:** All OpenAI API calls now check HTTP status codes and return clean error messages instead of silently failing.
+* **Standardized Failure Returns:** `generateItemJSON`, `generateItemImage`, and other API functions now consistently return `null` on failure instead of mixed empty strings, empty objects, or undefined.
+* **Stable Diffusion Timeout Notification:** Polling now shows a `ui.notifications.warn()` when it exhausts retries instead of silently returning null.
+
+### 🏗 Architecture
+
+* **God-Function Decomposition:** `generateItemData` (the core 500+ line item creation function) broken into focused helper functions — weapon setup, armor setup, spell normalization, consumable handling, and effect application each have their own clearly scoped blocks.
+* **Dialog Extraction:** `main.js` reduced from a monolith to a slim entry point. Generator dialog (208 lines) and History dialog (140 lines) extracted into dedicated `scripts/ui/generate-dialog.js` and `scripts/ui/history-dialog.js` modules.
+* **Shared Type Keywords:** Duplicated weapon/spell/feat keyword arrays consolidated into a new `scripts/utils/type-keywords.js` module — single source of truth used by both `item-generator.js` and `openai.js`.
+* **Shared Magical Detection:** `isMagical()` helper extracted — replaces 4 duplicated magic-detection blocks across item-type sections.
+* **jQuery/DOM Normalization:** `resolveHtmlRoot()` utility replaces repeated `html instanceof jQuery ? html[0] : html` checks across all dialog files.
+* **Utility Extraction:** `withRegenSpinner` (regen button loading state) and `enableSpellcheck` (right-click spellcheck helper) extracted into `ui-utils.js` — shared by Preview and History dialogs.
+* **Data-Driven Maps:** Converted if/else chains to lookup maps for subtype resolution and item-type routing.
+* **Parameter Order Fix:** `gptValidateItemEffects` parameter order corrected so `config` is last, matching the convention used everywhere else.
 
 ### ✨ Improvements
 
-* **Modular UI Architecture:** Generator and History dialogs extracted from `main.js` into dedicated `scripts/ui/generate-dialog.js` and `scripts/ui/history-dialog.js` modules.
-* **Shared Type Keywords:** Duplicated weapon/spell/feat keyword arrays consolidated into a shared `scripts/utils/type-keywords.js` module used by both `item-generator.js` and `openai.js`.
 * **Deduplicated Constants:** `WEIGHTLESS_TYPES` and `NO_MAGIC_PROPS_TYPES` merged into a single `NON_PHYSICAL_ITEM_TYPES` set.
-* **Type Safety JSDoc:** Added `GeneratorConfig` and `ParsedGPTItem` typedefs with full `@param`/`@returns` annotations on all major API and generator exports.
-* **Utility Extraction:** `withRegenSpinner` (regen button loading state) and `enableSpellcheck` (right-click spellcheck helper) extracted into `ui-utils.js` — shared by Preview and History dialogs.
+* **Type Safety JSDoc:** Added `GeneratorConfig` and `ParsedGPTItem` typedefs with full `@param`/`@returns` annotations on all major API and generator exports. Enables IDE autocomplete and catch-at-edit-time type errors.
+* **Null Guards:** Added defensive checks across API and generator functions to prevent cascading failures from upstream nulls.
+* **Log Noise Reduction:** All `console.log` calls downgraded to `console.debug`. Removed narration-style logs ("Starting generation...", "Processing item...") that cluttered the console.
 * **Empty Catch Blocks:** All silent `catch {}` blocks now log context via `console.debug`.
-* **Redundant Code Cleanup:** Removed narration-style console logs, simplified boolean ternaries, hoisted repeated variables, and removed dead assignments.
+* **Dead Code Removal:** Removed pass-through wrapper functions, unused parameters, and redundant variable assignments.
+* **Redundant Code Cleanup:** Simplified boolean ternaries to negation, hoisted repeated variables out of loops, and removed dead assignments.
+* **Section Separator Standardization:** Consistent `// ─── Section ───` separator style across all utility modules.
+* **Inline Export Style:** Standardized on `export const`/`export function` instead of mixed bottom-of-file exports.
+
+### 🧪 Testing
+
+* **Test Infrastructure:** Built from scratch — 154 unit tests across 13 test files using Vitest.
+* **Coverage:** Tests cover all utility modules (JSON parsing, weapon transforms, armor parsing, spell normalization, activity creation, description validation, file utilities, UI helpers, type keywords, and name generation).
+* **Test Stubs:** Mock infrastructure for Foundry globals (`game`, `ui`, `Dialog`, `FilePicker`) enabling isolated testing of module code.
 
 ---
 
