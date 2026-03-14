@@ -138,6 +138,6 @@
 ---
 
 ## v1.0.0 — Initial Release
-- 🎉 First release of the ChatGPT Item Generator  
+- 🎉 First release (originally as ChatGPT Item Generator)  
 - ✅ AI-generated D&D 5e items  
 - ✅ API integration  

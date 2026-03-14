@@ -1,5 +1,5 @@
 /**
- * Module settings registration for ChatGPT Item Generator.
+ * Module settings registration for Bytes AI Foundry.
  */
 
 export const MODULE_ID = "chatgpt-item-generator";

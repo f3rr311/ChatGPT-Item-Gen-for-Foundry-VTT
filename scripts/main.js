@@ -1,5 +1,5 @@
 /**
- * ChatGPT Item Generator — Entry point.
+ * Bytes AI Foundry — Entry point.
  * Registers settings, builds config, hooks into Foundry, and delegates to UI dialogs.
  */
 
@@ -94,13 +94,13 @@ Hooks.once("ready", () => {
   const imageModel = game.settings.get(MODULE_ID, "imageModel");
   if (imageModel.startsWith("dall-e")) {
     ui.notifications.warn(
-      `ChatGPT Item Generator: You are using ${imageModel}, which is deprecated and will stop working after May 12, 2026. Please switch to "GPT Image 1" in module settings.`,
+      `Bytes AI Foundry: You are using ${imageModel}, which is deprecated and will stop working after May 12, 2026. Please switch to "GPT Image 1" in module settings.`,
       { permanent: true }
     );
   }
 
   const moduleVersion = game.modules.get(MODULE_ID)?.version ?? "unknown";
-  console.log(`ChatGPT Item Generator v${moduleVersion} loaded`);
+  console.log(`Bytes AI Foundry v${moduleVersion} loaded`);
 });
 
 Hooks.on("renderItemDirectory", (app, html, data) => {

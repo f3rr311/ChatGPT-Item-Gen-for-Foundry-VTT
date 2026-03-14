@@ -296,4 +296,4 @@
 
 ## v1.0.1 — Initial Release
 
-* Testing release — first public version of ChatGPT Item Generator for Foundry VTT.
+* Testing release — first public version of Bytes AI Foundry (originally ChatGPT Item Generator) for Foundry VTT.

@@ -1,10 +1,10 @@
 <div align="center">
 <img width="1974" height="1294" alt="Screenshot" src="https://github.com/user-attachments/assets/3e6e8d3b-03ba-417e-aa4c-7ba247e088c6" />
 
-# ChatGPT Item Generator for Foundry VTT
+# Bytes AI Foundry for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-[![Version](https://img.shields.io/badge/Version-2.2.1-orange?style=flat-square)](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
+[![Version](https://img.shields.io/badge/Version-2.2.1-orange?style=flat-square)](https://github.com/f3rr311/Bytes-AI-Foundry/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
 <br>
 
@@ -97,11 +97,11 @@
 2. Click **Install Module**.
 3. Paste the following **Manifest URL**:
    ```text
-   https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/releases/latest/download/module.json
+   https://github.com/f3rr311/Bytes-AI-Foundry/releases/latest/download/module.json
    ```
 4. Click **Install**.
 5. Enable the module in your world via **Game Settings > Manage Modules**.
-6. Configure your **OpenAI API Key** in **Game Settings > Configure Settings > ChatGPT Item Generator**.
+6. Configure your **OpenAI API Key** in **Game Settings > Configure Settings > Bytes AI Foundry**.
 
 <br>
 
@@ -163,7 +163,7 @@ Click **Generate** and wait for the progress bar to complete. The item appears i
 
 ## ⚙️ Settings
 
-All settings are found in **Game Settings > Configure Settings > ChatGPT Item Generator**.
+All settings are found in **Game Settings > Configure Settings > Bytes AI Foundry**.
 
 | Setting | Description |
 |---------|-------------|
@@ -233,7 +233,7 @@ Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores re
 
 ### Support
 
-For issues or feature requests, please visit the [GitHub Issues](https://github.com/f3rr311/ChatGPT-Item-Gen-for-Foundry-VTT/issues) page.
+For issues or feature requests, please visit the [GitHub Issues](https://github.com/f3rr311/Bytes-AI-Foundry/issues) page.
 
 **Author:** [Byte_Smarter](https://github.com/f3rr311) · **Discord:** Byte_smarter
 
