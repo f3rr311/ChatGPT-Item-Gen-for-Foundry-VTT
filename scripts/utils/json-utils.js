@@ -14,8 +14,8 @@ export function sanitizeJSON(jsonStr) {
   try {
     JSON.parse(jsonStr);
     return jsonStr;
-  } catch (_parseErr) {
-    // Not valid JSON yet — fall through to recovery below
+  } catch (parseErr) {
+    console.debug("sanitizeJSON: initial parse failed, attempting recovery:", parseErr.message);
   }
 
   let cleaned = jsonStr;
