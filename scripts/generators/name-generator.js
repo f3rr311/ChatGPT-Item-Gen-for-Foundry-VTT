@@ -42,7 +42,7 @@ export function forceKeywordInName(name, prompt) {
 /**
  * Generate a creative item name via GPT, then apply keyword forcing.
  * @param {string} prompt — item description prompt
- * @param {object} config — GeneratorConfig with apiKey, lightModel/chatModel
+ * @param {GeneratorConfig} config — GeneratorConfig with apiKey, lightModel/chatModel
  * @returns {Promise<string>} final item name with keywords enforced
  */
 export async function generateItemName(prompt, config) {

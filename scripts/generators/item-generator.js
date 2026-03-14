@@ -38,8 +38,7 @@ function hasWord(text, word) {
 const VALID_WEAPON_CODES = ["simpleM", "martialM", "simpleR", "martialR"];
 
 /** Item types that should NOT get weight, attunement, or magical properties */
-const WEIGHTLESS_TYPES = ["spell", "feat", "background"];
-const NO_MAGIC_PROPS_TYPES = ["spell", "feat", "background"];
+const NON_PHYSICAL_ITEM_TYPES = ["spell", "feat", "background"];
 
 /** Rarities that imply the item is magical in D&D 5e. */
 const HIGH_RARITY = ["rare", "very rare", "legendary", "artifact"];
@@ -79,7 +78,7 @@ const HIGH_RARITY = ["rare", "very rare", "legendary", "artifact"];
 
 /**
  * Check if GPT flagged the item as magical via parsed.magical or parsed.magic.
- * @param {object} parsed — the parsed GPT JSON
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON
  * @returns {boolean} true if GPT indicated the item is magical
  */
 function hasMagicalFlag(parsed) {
@@ -193,8 +192,8 @@ export function fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt, ex
  * @param {string} foundryItemType — current resolved item type
  * @param {string} generatedName — the item name
  * @param {string} finalDesc — the item description
- * @param {object} parsed — the parsed GPT JSON
- * @param {object} descBonuses — results from parseDescriptionBonuses()
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON
+ * @param {{ magicalBonus: number|null, damage: object|null, extraDamage: Array, weaponHint: object|null }} descBonuses — results from parseDescriptionBonuses()
  * @returns {string} — the (potentially overridden) foundryItemType
  */
 function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc, parsed, descBonuses) {
@@ -334,7 +333,7 @@ function resolveLootSubtype(combinedText) {
 /**
  * Build weapon activities (attack + extra damage) on newItemData.
  * @param {object} newItemData — the item data being built (mutated)
- * @param {object} parsed — the parsed GPT JSON with optional extraDamage array
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON with optional extraDamage array
  */
 function buildWeaponActivities(newItemData, parsed) {
   newItemData.system.activities = {};
@@ -361,7 +360,7 @@ function buildWeaponActivities(newItemData, parsed) {
 /**
  * Build spell activities (save/attack/heal/utility) and condition effects on newItemData.
  * @param {object} newItemData — the item data being built (mutated)
- * @param {object} parsed — the parsed GPT JSON with spell fields
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON with spell fields
  * @param {string} refinedName — the final item name (used for utility activity label)
  */
 function buildSpellActivities(newItemData, parsed, refinedName) {
@@ -448,7 +447,7 @@ function buildSpellActivities(newItemData, parsed, refinedName) {
  * Build consumable activities (heal or utility "Use") on newItemData.
  * Healing potions get a Heal activity with PHB-scaled defaults; others get Utility "Use".
  * @param {object} newItemData — the item data being built (mutated)
- * @param {object} parsed — the parsed GPT JSON with rarity, effectDuration, etc.
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON with rarity, effectDuration, etc.
  * @param {string} refinedName — the final item name
  * @param {string} finalDesc — the item description HTML
  */
@@ -511,7 +510,7 @@ function buildConsumableActivities(newItemData, parsed, refinedName, finalDesc) 
  * Apply GPT's mechanicalEffects array as Active Effects on newItemData.
  * Handles consumable-specific transfer/duration settings and links effects to activities.
  * @param {object} newItemData — the item data being built (mutated)
- * @param {object} parsed — the parsed GPT JSON with mechanicalEffects array
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON with mechanicalEffects array
  * @param {string} foundryItemType — resolved Foundry item type
  */
 function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
@@ -560,7 +559,7 @@ function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
  * Process castable spells (staves, wands, rings) and add cast activities.
  * Looks up spells in the compendium first; creates new spell documents if not found.
  * @param {object} newItemData — the item data being built (mutated)
- * @param {object} parsed — the parsed GPT JSON with castableSpells array
+ * @param {ParsedGPTItem} parsed — the parsed GPT JSON with castableSpells array
  * @param {GeneratorConfig} config — GeneratorConfig (needs isDnd5eV4)
  */
 async function applyCastableSpells(newItemData, parsed, config) {
@@ -750,7 +749,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   };
 
   // Attunement only applies to equipment-like items, not spells/backgrounds
-  if (!WEIGHTLESS_TYPES.includes(foundryItemType)) {
+  if (!NON_PHYSICAL_ITEM_TYPES.includes(foundryItemType)) {
     newItemData.system.attunement = parsed.requiresAttunement ? 1 : 0;
     newItemData.system.activation = parsed.activation || { type: "", cost: 0 };
     newItemData.system.uses = parsed.uses || {};
@@ -759,7 +758,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Weight: GPT > weapon defaults > fallback ----------
   // Spells, feats, backgrounds don't have weight
 
-  if (!WEIGHTLESS_TYPES.includes(foundryItemType)) {
+  if (!NON_PHYSICAL_ITEM_TYPES.includes(foundryItemType)) {
     const hint = descBonuses.weaponHint; // shorthand for weapon defaults from description
     let weightVal = Number(parsed.weight) || (hint ? hint.weight : null) || 1;
 
@@ -1102,7 +1101,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // ---------- Magical properties ----------
   // Skip for spells, feats, and backgrounds — they don't get random magical properties
 
-  if (!NO_MAGIC_PROPS_TYPES.includes(foundryItemType)) {
+  if (!NON_PHYSICAL_ITEM_TYPES.includes(foundryItemType)) {
     const isMagic = hasMagicalFlag(parsed);
     const rarityLower = (parsed.rarity || "").toLowerCase();
     if (isMagic || (HIGH_RARITY.includes(rarityLower) && Math.random() < 0.5)) {

@@ -51,6 +51,10 @@ function buildConfig() {
 // We pass buildConfig and the counterpart opener as callbacks to break the cycle.
 
 function showGenerateDialog() {
+  if (!game.user.isGM) {
+    ui.notifications.warn("Only the GM can use the item generator.");
+    return;
+  }
   openGenerateDialog(buildConfig, showHistoryDialog);
 }
 

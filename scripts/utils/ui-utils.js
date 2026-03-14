@@ -130,6 +130,10 @@ export function resetItemCostTracker() {
   }
 }
 
+/**
+ * Display the fixed-position progress bar overlay for item generation.
+ * Resets the per-item cost tracker before showing.
+ */
 export function showProgressBar() {
   resetItemCostTracker();
 
@@ -155,6 +159,10 @@ export function showProgressBar() {
   updateSessionCostDisplay();
 }
 
+/**
+ * Update the progress bar percentage and cost display.
+ * @param {number} value — progress percentage (0–100)
+ */
 export function updateProgressBar(value) {
   const bar = document.getElementById('ai-progress-bar');
   const text = document.getElementById('ai-progress-text');
@@ -185,6 +193,9 @@ function updateSessionCostDisplay() {
   }
 }
 
+/**
+ * Remove the progress bar overlay from the DOM.
+ */
 export function hideProgressBar() {
   const container = document.getElementById('ai-progress-container');
   if (container) container.remove();
