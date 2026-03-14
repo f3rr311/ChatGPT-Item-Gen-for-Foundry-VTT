@@ -3,8 +3,8 @@
  */
 
 import { estimateCost } from '../utils/ui-utils.js';
-import { generateItemName, ensureItemName } from '../generators/name-generator.js';
-import { generateItemImage, generateItemJSON } from '../api/openai.js';
+import { generateItemName } from '../generators/name-generator.js';
+import { generateItemImage, generateItemJSON, apiEnsureItemName } from '../api/openai.js';
 import { parseItemJSON } from '../generators/item-generator.js';
 
 /**
@@ -117,7 +117,7 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
           try {
             if (action === "name") {
               const newName = await generateItemName(combined, config);
-              const refined = await ensureItemName(newName, item.system.description.value, config);
+              const refined = await apiEnsureItemName(newName, item.system.description.value, config);
               await item.update({ name: refined });
               entry.itemName = refined;
               ui.notifications.info(`Name updated: ${refined}`);

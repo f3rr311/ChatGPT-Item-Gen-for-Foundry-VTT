@@ -2,7 +2,7 @@
  * Item name generation, keyword forcing, and refinement.
  */
 
-import { apiGenerateItemName, apiEnsureItemName } from '../api/openai.js';
+import { apiGenerateItemName } from '../api/openai.js';
 
 const KEYWORDS = ["ring", "amulet", "dagger", "sword", "shield", "gloves", "cloak", "potion"];
 
@@ -37,12 +37,3 @@ export async function generateItemName(prompt, config) {
   return forceKeywordInName(name, prompt, "");
 }
 
-/**
- * Thin wrapper around apiEnsureItemName for API boundary consistency.
- * Unlike generateItemName, no keyword forcing is applied here because
- * ensureItemName is a fallback for missing names — the prompt context
- * needed for keyword matching is not available at this stage.
- */
-export async function ensureItemName(currentName, description, config) {
-  return await apiEnsureItemName(currentName, description, config);
-}

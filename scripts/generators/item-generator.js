@@ -4,7 +4,7 @@
  */
 
 import { sanitizeJSON } from '../utils/json-utils.js';
-import { fixInvalidJSON, generateItemJSON, generateItemImage, generateMagicalProperties } from '../api/openai.js';
+import { fixInvalidJSON, generateItemJSON, generateItemImage, generateMagicalProperties, apiEnsureItemName } from '../api/openai.js';
 import { transformWeaponDamage, transformWeaponProperties, buildVersatileDamage, parseDescriptionBonuses, PROPERTY_ABBREV_MAP, parseDamageFormula } from '../utils/weapon-utils.js';
 import { parseDescriptionForArmor } from '../utils/armor-utils.js';
 import {
@@ -19,7 +19,7 @@ import {
   buildHealActivity, buildUtilityActivity, buildCastActivity,
   buildDamagePart, buildActiveEffect, mapEffectChange, durationToSeconds
 } from '../utils/activity-utils.js';
-import { generateItemName, ensureItemName } from './name-generator.js';
+import { generateItemName } from './name-generator.js';
 import { validateAndEnrichItem } from '../utils/description-validator.js';
 import { validateAgainstCompendium, checkDuplicates, getCompendiumDefaults } from '../utils/compendium-utils.js';
 
@@ -208,57 +208,74 @@ function resolveEquipmentSubtype(nameLC, combinedText) {
 }
 
 /** Resolve the consumable subtype from combined text and GPT's itemType. */
-function resolveConsumableSubtype(combinedText, parsedItemType) {
-  const validConsumables = ["potion", "poison", "scroll", "wand", "rod", "food", "trinket", "ammo"];
-  const consType = parsedItemType ? parsedItemType.toLowerCase() : "";
-  if (validConsumables.includes(consType)) return consType;
+/** Keyword → subtype maps for data-driven resolution. */
+const CONSUMABLE_SUBTYPE_MAP = [
+  { subtype: "potion", keywords: ["potion", "elixir", "philter", "draught", "brew", "tonic", "vial"] },
+  { subtype: "poison", keywords: ["poison", "toxin", "venom"] },
+  { subtype: "scroll", keywords: ["scroll"] },
+  { subtype: "ammo",   keywords: ["ammunition", "arrow", "bolt", "bullet", "dart", "sling stone", "needle"] },
+  { subtype: "food",   keywords: ["food", "ration", "berry", "fruit", "bread", "herb", "mushroom", "feast"] }
+];
+const VALID_CONSUMABLE_TYPES = new Set(["potion", "poison", "scroll", "wand", "rod", "food", "trinket", "ammo"]);
 
-  if (combinedText.includes("potion") || combinedText.includes("elixir") || combinedText.includes("philter") || combinedText.includes("draught") || combinedText.includes("brew") || combinedText.includes("tonic") || combinedText.includes("vial")) return "potion";
-  if (combinedText.includes("poison") || combinedText.includes("toxin") || combinedText.includes("venom")) return "poison";
-  if (combinedText.includes("scroll")) return "scroll";
-  if (combinedText.includes("ammunition") || combinedText.includes("arrow") || combinedText.includes("bolt") || combinedText.includes("bullet") || combinedText.includes("dart") || combinedText.includes("sling stone") || combinedText.includes("needle")) return "ammo";
-  if (combinedText.includes("food") || combinedText.includes("ration") || combinedText.includes("berry") || combinedText.includes("fruit") || combinedText.includes("bread") || combinedText.includes("herb") || combinedText.includes("mushroom") || combinedText.includes("feast")) return "food";
-  return "potion";
+const TOOL_SUBTYPE_MAP = [
+  { subtype: "game",         keywords: ["gaming", "dice", "cards", "chess", "dragonchess"] },
+  { subtype: "music",        keywords: ["instrument", "lute", "drum", "flute", "horn", "lyre", "pan pipes", "shawm", "viol", "bagpipe", "dulcimer"] },
+  { subtype: "thief",        keywords: ["thieves", "lockpick", "pick lock"] },
+  { subtype: "navg",         keywords: ["navigator", "navigation"] },
+  { subtype: "herb",         keywords: ["herbalism"] },
+  { subtype: "pois",         keywords: ["poisoner"] },
+  { subtype: "vehicle",      keywords: ["vehicle", "cart", "ship", "boat"] },
+  { subtype: "alchemist",    keywords: ["alchemist"] },
+  { subtype: "brewer",       keywords: ["brewer"] },
+  { subtype: "calligrapher", keywords: ["calligrapher"] },
+  { subtype: "carpenter",    keywords: ["carpenter"] },
+  { subtype: "cartographer", keywords: ["cartographer"] },
+  { subtype: "cobbler",      keywords: ["cobbler"] },
+  { subtype: "cook",         keywords: ["cook"] },
+  { subtype: "glassblower",  keywords: ["glassblower"] },
+  { subtype: "jeweler",      keywords: ["jeweler"] },
+  { subtype: "leatherworker",keywords: ["leatherworker"] },
+  { subtype: "mason",        keywords: ["mason"] },
+  { subtype: "painter",      keywords: ["painter"] },
+  { subtype: "potter",       keywords: ["potter"] },
+  { subtype: "smith",        keywords: ["smith", "forge", "anvil", "hammer", "tongs"] },
+  { subtype: "tinker",       keywords: ["tinker"] },
+  { subtype: "weaver",       keywords: ["weaver"] },
+  { subtype: "woodcarver",   keywords: ["woodcarver"] },
+  { subtype: "disg",         keywords: ["disguise"] },
+  { subtype: "forg",         keywords: ["forgery"] }
+];
+
+const LOOT_SUBTYPE_MAP = [
+  { subtype: "gem",      keywords: ["gem", "jewel", "diamond", "ruby", "sapphire", "emerald", "opal", "pearl", "amethyst", "topaz", "garnet"] },
+  { subtype: "art",      keywords: ["art", "painting", "sculpture", "tapestry", "idol", "statuette", "figurine", "carving", "portrait"] },
+  { subtype: "material", keywords: ["material", "ingot", "ore", "hide", "pelt", "silk", "cloth", "lumber", "component"] },
+  { subtype: "junk",     keywords: ["junk", "scrap", "broken", "rusty", "worthless"] }
+];
+
+/** Match text against a keyword→subtype map. Returns the first matching subtype or the fallback. */
+function matchSubtype(text, subtypeMap, fallback) {
+  for (const { subtype, keywords } of subtypeMap) {
+    if (keywords.some(kw => text.includes(kw))) return subtype;
+  }
+  return fallback;
+}
+
+function resolveConsumableSubtype(combinedText, parsedItemType) {
+  const consType = parsedItemType ? parsedItemType.toLowerCase() : "";
+  if (VALID_CONSUMABLE_TYPES.has(consType)) return consType;
+  return matchSubtype(combinedText, CONSUMABLE_SUBTYPE_MAP, "potion");
 }
 
 /** Resolve the tool subtype from combined name+description text. */
 function resolveToolSubtype(combinedText) {
-  if (combinedText.includes("gaming") || combinedText.includes("dice") || combinedText.includes("cards") || combinedText.includes("chess") || combinedText.includes("dragonchess")) return "game";
-  if (combinedText.includes("instrument") || combinedText.includes("lute") || combinedText.includes("drum") || combinedText.includes("flute") || combinedText.includes("horn") || combinedText.includes("lyre") || combinedText.includes("pan pipes") || combinedText.includes("shawm") || combinedText.includes("viol") || combinedText.includes("bagpipe") || combinedText.includes("dulcimer")) return "music";
-  if (combinedText.includes("thieves") || combinedText.includes("lockpick") || combinedText.includes("pick lock")) return "thief";
-  if (combinedText.includes("navigator") || combinedText.includes("navigation")) return "navg";
-  if (combinedText.includes("herbalism")) return "herb";
-  if (combinedText.includes("poisoner")) return "pois";
-  if (combinedText.includes("vehicle") || combinedText.includes("cart") || combinedText.includes("ship") || combinedText.includes("boat")) return "vehicle";
-  if (combinedText.includes("alchemist")) return "alchemist";
-  if (combinedText.includes("brewer")) return "brewer";
-  if (combinedText.includes("calligrapher")) return "calligrapher";
-  if (combinedText.includes("carpenter")) return "carpenter";
-  if (combinedText.includes("cartographer")) return "cartographer";
-  if (combinedText.includes("cobbler")) return "cobbler";
-  if (combinedText.includes("cook")) return "cook";
-  if (combinedText.includes("glassblower")) return "glassblower";
-  if (combinedText.includes("jeweler")) return "jeweler";
-  if (combinedText.includes("leatherworker")) return "leatherworker";
-  if (combinedText.includes("mason")) return "mason";
-  if (combinedText.includes("painter")) return "painter";
-  if (combinedText.includes("potter")) return "potter";
-  if (combinedText.includes("smith") || combinedText.includes("forge") || combinedText.includes("anvil") || combinedText.includes("hammer") || combinedText.includes("tongs")) return "smith";
-  if (combinedText.includes("tinker")) return "tinker";
-  if (combinedText.includes("weaver")) return "weaver";
-  if (combinedText.includes("woodcarver")) return "woodcarver";
-  if (combinedText.includes("disguise")) return "disg";
-  if (combinedText.includes("forgery")) return "forg";
-  return "art";
+  return matchSubtype(combinedText, TOOL_SUBTYPE_MAP, "art");
 }
 
 /** Resolve the loot subtype from combined name+description text. */
 function resolveLootSubtype(combinedText) {
-  if (combinedText.includes("gem") || combinedText.includes("jewel") || combinedText.includes("diamond") || combinedText.includes("ruby") || combinedText.includes("sapphire") || combinedText.includes("emerald") || combinedText.includes("opal") || combinedText.includes("pearl") || combinedText.includes("amethyst") || combinedText.includes("topaz") || combinedText.includes("garnet")) return "gem";
-  if (combinedText.includes("art") || combinedText.includes("painting") || combinedText.includes("sculpture") || combinedText.includes("tapestry") || combinedText.includes("idol") || combinedText.includes("statuette") || combinedText.includes("figurine") || combinedText.includes("carving") || combinedText.includes("portrait")) return "art";
-  if (combinedText.includes("material") || combinedText.includes("ingot") || combinedText.includes("ore") || combinedText.includes("hide") || combinedText.includes("pelt") || combinedText.includes("silk") || combinedText.includes("cloth") || combinedText.includes("lumber") || combinedText.includes("component")) return "material";
-  if (combinedText.includes("junk") || combinedText.includes("scrap") || combinedText.includes("broken") || combinedText.includes("rusty") || combinedText.includes("worthless")) return "junk";
-  return "treasure";
+  return matchSubtype(combinedText, LOOT_SUBTYPE_MAP, "treasure");
 }
 
 // ---------- Activity Builder Helpers ----------
@@ -563,7 +580,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Refine the item name based on the description if no override was provided
   let refinedName = (forcedName && forcedName.trim().length > 0)
     ? forcedName
-    : await ensureItemName(generatedName, finalDesc, config);
+    : await apiEnsureItemName(generatedName, finalDesc, config);
   updateProgressBar(80);
 
   // Pre-compute lowercase variants used by type detection and field resolution
@@ -1346,6 +1363,10 @@ export async function ensureItemFolder(name, parentId = null) {
 }
 
 export async function createItemFromData(result, folderOverride = null) {
+  if (!game.user.isGM) {
+    ui.notifications.warn("Only the GM can create items.");
+    return null;
+  }
   const { newItemData, imagePath, refinedName, prompt, config, explicitType, foundryItemType, rarity } = result;
 
   // Place item in the specified folder, or default "AI Items" folder
