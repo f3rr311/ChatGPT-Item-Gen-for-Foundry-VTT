@@ -24,17 +24,19 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
       const typeIcon = entry.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
       const display = entry.entryCount ? `${entry.itemName} (${entry.entryCount} entries)` : entry.itemName;
       const isRollTable = entry.itemType === "rolltable";
+      const btnStyle = "background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.25);border-radius:4px;color:#ddd;cursor:pointer;padding:4px 8px;font-size:0.78rem;margin:2px 0;display:block;width:100%;text-align:left;";
       const regenButtons = isRollTable ? "—" : `
-        <button class="regen-btn" data-action="name" data-idx="${i}" title="Regenerate Name"><i class="fas fa-pen"></i></button>
-        <button class="regen-btn" data-action="image" data-idx="${i}" title="Regenerate Image"><i class="fas fa-image"></i></button>
-        <button class="regen-btn" data-action="description" data-idx="${i}" title="Regenerate Description"><i class="fas fa-file-alt"></i></button>
+        <button class="regen-btn" style="${btnStyle}" data-action="name" data-idx="${i}" title="Regenerate Name"><i class="fas fa-pen" style="width:14px;"></i> Name</button>
+        <button class="regen-btn" style="${btnStyle}" data-action="image" data-idx="${i}" title="Regenerate Image"><i class="fas fa-image" style="width:14px;"></i> Image</button>
+        <button class="regen-btn" style="${btnStyle}" data-action="description" data-idx="${i}" title="Regenerate Description"><i class="fas fa-file-alt" style="width:14px;"></i> Desc</button>
       `;
-      rows += `<tr>
-        <td><i class="fas ${typeIcon}"></i> ${display}</td>
-        <td>${entry.itemType}</td>
-        <td>${entry.rarity || "—"}</td>
-        <td>${time}</td>
-        <td>${regenButtons}</td>
+      const cellStyle = "color:#ddd;padding:6px 8px;";
+      rows += `<tr style="background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.1);">
+        <td style="${cellStyle}"><i class="fas ${typeIcon}"></i> ${display}</td>
+        <td style="${cellStyle}">${entry.itemType}</td>
+        <td style="${cellStyle}">${entry.rarity || "—"}</td>
+        <td style="${cellStyle}">${time}</td>
+        <td style="${cellStyle}">${regenButtons}</td>
       </tr>`;
     }
   }
@@ -84,7 +86,7 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
     render: (html) => {
       const { root, dialog } = initDialogRoot(html);
       if (dialog) {
-        dialog.style.minWidth = '580px';
+        dialog.style.minWidth = '680px';
       }
 
       // Attach regen button click handlers
@@ -134,5 +136,5 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
         });
       });
     }
-  }, { classes: ["chatgpt-dialog"], resizable: true }).render(true);
+  }, { classes: ["chatgpt-dialog"], resizable: true, width: 700 }).render(true);
 }

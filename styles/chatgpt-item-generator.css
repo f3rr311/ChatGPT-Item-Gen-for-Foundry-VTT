@@ -387,17 +387,20 @@
 
 /* History regen buttons */
 .chatgpt-dialog .chatgpt-history-table .regen-btn {
-    background: transparent;
-    border: none;
-    color: var(--color-text-dark-secondary, #888);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    color: #ccc;
     cursor: pointer;
-    padding: 2px 5px;
+    padding: 3px 6px;
     font-size: 0.82rem;
-    transition: color 0.2s;
+    transition: color 0.2s, background 0.2s;
 }
 
 .chatgpt-dialog .chatgpt-history-table .regen-btn:hover {
-    color: #7c5cfc;
+    color: #fff;
+    background: rgba(124, 92, 252, 0.4);
+    border-color: rgba(124, 92, 252, 0.6);
 }
 
 .chatgpt-dialog .chatgpt-history-table .regen-btn:disabled {
