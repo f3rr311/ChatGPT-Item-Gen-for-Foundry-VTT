@@ -13,9 +13,72 @@ import {
 const CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
 
+/** Maps image output formats to MIME types and file extensions. */
+const IMAGE_FORMAT_MAP = {
+  png:  { mime: "image/png",  ext: "png" },
+  webp: { mime: "image/webp", ext: "webp" },
+  jpeg: { mime: "image/jpeg", ext: "jpg" }
+};
+
+/** Default max tokens for chat completions by item category. */
+const MAX_TOKENS_SPELL = 1400;
+const MAX_TOKENS_DEFAULT = 900;
+
+/**
+ * Accumulate token usage from an API response onto session/item cost trackers.
+ * @param {object} usageData — the `usage` object from the OpenAI response
+ */
+function trackTokenUsage(usageData) {
+  if (!usageData || !game.chatGPTItemGenerator?.sessionCost) return;
+
+  const usage = {
+    prompt: usageData.prompt_tokens || 0,
+    completion: usageData.completion_tokens || 0,
+    total: usageData.total_tokens || 0
+  };
+  const session = game.chatGPTItemGenerator.sessionCost;
+  session.promptTokens += usage.prompt;
+  session.completionTokens += usage.completion;
+  session.totalTokens += usage.total;
+  session.apiCalls += 1;
+
+  if (game.chatGPTItemGenerator.currentCost) {
+    const current = game.chatGPTItemGenerator.currentCost;
+    current.promptTokens += usage.prompt;
+    current.completionTokens += usage.completion;
+    current.totalTokens += usage.total;
+    current.apiCalls += 1;
+  }
+}
+
+/**
+ * Increment image generation count on session/item cost trackers.
+ */
+function trackImageGeneration() {
+  if (game.chatGPTItemGenerator?.sessionCost) {
+    game.chatGPTItemGenerator.sessionCost.imageGenerations += 1;
+  }
+  if (game.chatGPTItemGenerator?.currentCost) {
+    game.chatGPTItemGenerator.currentCost.imageGenerations += 1;
+  }
+}
+
 // ---------- Chat Completion Helpers ----------
 
+/**
+ * Send a chat completion request to OpenAI and return the response text.
+ * Accumulates token usage on game.chatGPTItemGenerator for cost tracking.
+ *
+ * @param {string} apiKey — OpenAI API key
+ * @param {string} model — model name (e.g. "gpt-4.1")
+ * @param {string} systemPrompt — system-level instructions
+ * @param {string} userPrompt — user-level prompt text
+ * @param {number} maxTokens — max tokens to generate
+ * @param {boolean} [useJsonMode=false] — request JSON response format
+ * @returns {Promise<string|null>} trimmed response text, or null on failure
+ */
 async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens, useJsonMode = false) {
+  if (!apiKey || !model) return null;
   const body = {
     model,
     messages: [
@@ -43,28 +106,7 @@ async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens
   }
 
   const data = await response.json();
-
-  // Accumulate token usage for session + current item cost tracking
-  if (data.usage && game.chatGPTItemGenerator?.sessionCost) {
-    const usage = {
-      prompt: data.usage.prompt_tokens || 0,
-      completion: data.usage.completion_tokens || 0,
-      total: data.usage.total_tokens || 0
-    };
-    const session = game.chatGPTItemGenerator.sessionCost;
-    session.promptTokens += usage.prompt;
-    session.completionTokens += usage.completion;
-    session.totalTokens += usage.total;
-    session.apiCalls += 1;
-    if (game.chatGPTItemGenerator.currentCost) {
-      const current = game.chatGPTItemGenerator.currentCost;
-      current.promptTokens += usage.prompt;
-      current.completionTokens += usage.completion;
-      current.totalTokens += usage.total;
-      current.apiCalls += 1;
-    }
-  }
-
+  trackTokenUsage(data.usage);
   return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
@@ -148,7 +190,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
 
   // Select type-specific prompt block
   let typePrompt = "";
-  let maxTokens = 900;
+  let maxTokens = MAX_TOKENS_DEFAULT;
   switch (explicitType) {
     case "Weapon":
       typePrompt = WEAPON_PROMPT_BLOCK;
@@ -158,7 +200,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
       break;
     case "Spell":
       typePrompt = SPELL_PROMPT_BLOCK;
-      maxTokens = 1400; // Spells have many more structured fields
+      maxTokens = MAX_TOKENS_SPELL;
       break;
     case "Feat":
       typePrompt = FEAT_PROMPT_BLOCK;
@@ -180,7 +222,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
           typePrompt = ARMOR_PROMPT_BLOCK;
         } else if (SPELL_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = SPELL_PROMPT_BLOCK;
-          maxTokens = 1400;
+          maxTokens = MAX_TOKENS_SPELL;
         } else if (FEAT_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = FEAT_PROMPT_BLOCK;
         } else if (CONSUMABLE_KEYWORDS.some(k => promptLC.includes(k))) {
@@ -258,8 +300,10 @@ Generate a creative fantasy item name that reflects the details and flavor of th
  *
  * @param {string} description — the item's description HTML
  * @param {string} itemType — Foundry item type: "weapon", "spell", "equipment", etc.
+ * @param {boolean} isArmorItem — true if the item is armor (skips AC/stealth effects)
  * @param {object} config — module config with apiKey, lightModel, chatModel
- * @returns {Promise<{mechanicalEffects: Array, extraDamage: Array}|null>}
+ * @returns {Promise<{mechanicalEffects: Array<object>, extraDamage: Array<object>}|null>}
+ *   null when no API key, description too short, or GPT call fails
  */
 export async function gptValidateItemEffects(description, itemType, isArmorItem, config) {
   if (!config.apiKey) return null;
@@ -321,12 +365,13 @@ export async function gptValidateItemEffects(description, itemType, isArmorItem,
 
 /**
  * Generate creative magical property descriptions for an item.
- * @param {object} itemData — partial item data with name and type
- * @param {number} count — number of properties to generate
- * @param {object} config — GeneratorConfig with apiKey, chatModel
- * @returns {Promise<string[]>} array of property description strings
+ * @param {object} itemData — partial item data with name, type, and system fields
+ * @param {number} count — number of properties to generate (1–3)
+ * @param {object} config — GeneratorConfig with apiKey, lightModel/chatModel
+ * @returns {Promise<string|null>} newline-separated property descriptions, or null on failure
  */
 export async function generateMagicalProperties(itemData, count, config) {
+  if (!config?.apiKey || !itemData?.name) return null;
   const prompt = `Generate ${count} creative, unique, and flavorful magical property descriptions for the following DnD 5e item. Each description should be a concise sentence describing a special ability or effect that fits the item details. Provide each property on its own line.
 
 Item Details:
@@ -356,7 +401,7 @@ Output only the descriptions, one per line, with no numbering or extra commentar
  * @returns {Promise<string>} JSON string with table entries, or "{}" on failure
  */
 export async function generateRollTableJSON(userPrompt, config, entryCount = 10) {
-  if (!config.apiKey) return "{}";
+  if (!config?.apiKey || !userPrompt) return "{}";
 
   const isGeneric = userPrompt.includes("-- tableType=generic");
 
@@ -393,6 +438,8 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
  * @returns {Promise<string|null>} path to saved image file, or null on failure
  */
 export async function generateItemImage(prompt, config) {
+  if (!prompt || !config) return null;
+
   // Check if Stable Diffusion is enabled
   const useSD = game.settings.get(MODULE_ID, "stableDiffusionEnabled");
   if (useSD) {
@@ -453,29 +500,17 @@ export async function generateItemImage(prompt, config) {
 
   if (data.data && data.data[0]?.b64_json) {
     // Determine MIME type and file extension from the model/format
-    let mimeType = "image/png";
-    let fileExt = "png";
-    if (!imageModel.startsWith("dall-e")) {
-      const formatMap = { png: "image/png", webp: "image/webp", jpeg: "image/jpeg" };
-      const extMap = { png: "png", webp: "webp", jpeg: "jpg" };
-      mimeType = formatMap[imageFormat] || "image/png";
-      fileExt = extMap[imageFormat] || "png";
-    }
+    const fmt = (!imageModel.startsWith("dall-e") && IMAGE_FORMAT_MAP[imageFormat])
+      ? IMAGE_FORMAT_MAP[imageFormat]
+      : IMAGE_FORMAT_MAP.png;
 
-    const dataUrl = `data:${mimeType};base64,${data.data[0].b64_json}`;
+    const dataUrl = `data:${fmt.mime};base64,${data.data[0].b64_json}`;
     const shortName = prompt.replace(/[^a-zA-Z0-9 ]/g, "").split(/\s+/).slice(0, 4).join("_").toLowerCase();
-    const fileName = `${shortName}_${Date.now()}.${fileExt}`;
+    const fileName = `${shortName}_${Date.now()}.${fmt.ext}`;
     const targetFolder = config.imageFolder;
     await ensureFolder(targetFolder);
 
-    // Track image generation for session + current item cost
-    if (game.chatGPTItemGenerator?.sessionCost) {
-      game.chatGPTItemGenerator.sessionCost.imageGenerations += 1;
-    }
-    if (game.chatGPTItemGenerator?.currentCost) {
-      game.chatGPTItemGenerator.currentCost.imageGenerations += 1;
-    }
-
+    trackImageGeneration();
     return await saveImageLocally(dataUrl, fileName, targetFolder);
   }
 

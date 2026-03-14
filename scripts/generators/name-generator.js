@@ -18,6 +18,7 @@ const NON_PHYSICAL_TYPES = ["- Spell", "- Feat", "- Background", "- Container"];
  * @returns {string} name with forced keywords applied
  */
 export function forceKeywordInName(name, prompt, desc = "") {
+  if (!name || !prompt) return name || "Unnamed";
   const promptLC = prompt.toLowerCase();
 
   // Skip weapon keyword forcing for non-physical item types
@@ -47,6 +48,7 @@ export function forceKeywordInName(name, prompt, desc = "") {
  * @returns {Promise<string>} final item name with keywords enforced
  */
 export async function generateItemName(prompt, config) {
+  if (!prompt || !config) return "Unnamed";
   const name = await apiGenerateItemName(prompt, config);
   return forceKeywordInName(name, prompt, "");
 }

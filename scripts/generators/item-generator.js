@@ -32,6 +32,12 @@ function hasWord(text, word) {
   return new RegExp(`\\b${word}\\b`, 'i').test(text);
 }
 
+/** Default icon path used when no item image is available. */
+const DEFAULT_ICON = "icons/svg/d20-highlight.svg";
+
+/** Maximum number of history entries retained per session. */
+const MAX_HISTORY_ENTRIES = 50;
+
 /** Valid weapon classification codes for dnd5e v4+ */
 const VALID_WEAPON_CODES = ["simpleM", "martialM", "simpleR", "martialR"];
 
@@ -67,7 +73,15 @@ function inferMagicalBonusFromRarity(rarity) {
 
 // ---------- JSON Parsing ----------
 
+/**
+ * Parse raw GPT JSON for an item, with multi-stage fallback recovery.
+ * Tries: direct parse → GPT fix → sanitizer → empty object.
+ * @param {string} raw — raw JSON string from GPT
+ * @param {object} config — GeneratorConfig (needed for fixInvalidJSON API call)
+ * @returns {Promise<object>} parsed item data object (empty object on total failure)
+ */
 export async function parseItemJSON(raw, config) {
+  if (!raw || typeof raw !== "string") return {};
   console.debug("Raw JSON from GPT:", raw);
   try {
     return JSON.parse(raw);
@@ -91,7 +105,17 @@ export async function parseItemJSON(raw, config) {
 
 // ---------- Name/Description Mismatch Fixing ----------
 
+/**
+ * Extract the item name from the description's "Item Name:" prefix and fix
+ * name/description mismatches (e.g. GPT using "dagger" when user said "sword").
+ * @param {string} itemName — the current item name
+ * @param {string} rawJSON — raw JSON string containing the item data
+ * @param {string} originalPrompt — the user's original prompt
+ * @param {string} [explicitType=""] — forced item type (guards weapon-specific replacement)
+ * @returns {{json: string, name: string}} corrected JSON string and item name
+ */
 export function fixNameDescriptionMismatch(itemName, rawJSON, originalPrompt, explicitType = "") {
+  if (!itemName || !rawJSON) return { json: rawJSON || "{}", name: itemName || "Unnamed" };
   let nameLC = itemName.toLowerCase();
   let promptLC = originalPrompt.toLowerCase();
   let parsed;
@@ -278,7 +302,11 @@ function resolveLootSubtype(combinedText) {
 
 // ---------- Activity Builder Helpers ----------
 
-/** Build weapon activities (attack + extra damage) on newItemData. */
+/**
+ * Build weapon activities (attack + extra damage) on newItemData.
+ * @param {object} newItemData — the item data being built (mutated)
+ * @param {object} parsed — the parsed GPT JSON with optional extraDamage array
+ */
 function buildWeaponActivities(newItemData, parsed) {
   newItemData.system.activities = {};
   const classification = newItemData.system.type?.value || "simpleM";
@@ -301,7 +329,12 @@ function buildWeaponActivities(newItemData, parsed) {
   }
 }
 
-/** Build spell activities (save/attack/heal/utility) and condition effects on newItemData. */
+/**
+ * Build spell activities (save/attack/heal/utility) and condition effects on newItemData.
+ * @param {object} newItemData — the item data being built (mutated)
+ * @param {object} parsed — the parsed GPT JSON with spell fields
+ * @param {string} refinedName — the final item name (used for utility activity label)
+ */
 function buildSpellActivities(newItemData, parsed, refinedName) {
   newItemData.system.activities = {};
   const spellActionType = newItemData.system.actionType;
@@ -382,7 +415,14 @@ function buildSpellActivities(newItemData, parsed, refinedName) {
   }
 }
 
-/** Build consumable activities (heal or utility "Use") on newItemData. */
+/**
+ * Build consumable activities (heal or utility "Use") on newItemData.
+ * Healing potions get a Heal activity with PHB-scaled defaults; others get Utility "Use".
+ * @param {object} newItemData — the item data being built (mutated)
+ * @param {object} parsed — the parsed GPT JSON with rarity, effectDuration, etc.
+ * @param {string} refinedName — the final item name
+ * @param {string} finalDesc — the item description HTML
+ */
 function buildConsumableActivities(newItemData, parsed, refinedName, finalDesc) {
   const consSubtype = newItemData.system.type?.value || "";
   const consNameLC = refinedName.toLowerCase();
@@ -438,7 +478,13 @@ function buildConsumableActivities(newItemData, parsed, refinedName, finalDesc) 
 
 // ---------- Mechanical Effects & Castable Spells ----------
 
-/** Apply GPT's mechanicalEffects array as Active Effects on newItemData. */
+/**
+ * Apply GPT's mechanicalEffects array as Active Effects on newItemData.
+ * Handles consumable-specific transfer/duration settings and links effects to activities.
+ * @param {object} newItemData — the item data being built (mutated)
+ * @param {object} parsed — the parsed GPT JSON with mechanicalEffects array
+ * @param {string} foundryItemType — resolved Foundry item type
+ */
 function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
   if (!parsed.mechanicalEffects || !Array.isArray(parsed.mechanicalEffects) || parsed.mechanicalEffects.length === 0) return;
 
@@ -481,7 +527,13 @@ function applyMechanicalEffects(newItemData, parsed, foundryItemType) {
   }
 }
 
-/** Process castable spells (staves, wands, rings) and add cast activities. */
+/**
+ * Process castable spells (staves, wands, rings) and add cast activities.
+ * Looks up spells in the compendium first; creates new spell documents if not found.
+ * @param {object} newItemData — the item data being built (mutated)
+ * @param {object} parsed — the parsed GPT JSON with castableSpells array
+ * @param {object} config — GeneratorConfig (needs isDnd5eV4)
+ */
 async function applyCastableSpells(newItemData, parsed, config) {
   if (!parsed.castableSpells || !Array.isArray(parsed.castableSpells) || parsed.castableSpells.length === 0 || !config.isDnd5eV4) return;
 
@@ -530,6 +582,12 @@ async function applyCastableSpells(newItemData, parsed, config) {
 /**
  * Generate item data without creating the Foundry document.
  * Returns all the data needed to preview or create the item.
+ * @param {string} itemPrompt — user's item description prompt
+ * @param {object} config — GeneratorConfig with apiKey, chatModel, isDnd5eV4, etc.
+ * @param {string|null} [forcedName=null] — override item name (skips GPT name generation)
+ * @param {string} [explicitType=""] — forced item type from UI dropdown (e.g. "Weapon", "Spell")
+ * @returns {Promise<object|null>} generation result with newItemData, imagePath, refinedName,
+ *   compendiumWarnings, duplicates, etc. — or null if not GM
  */
 export async function generateItemData(itemPrompt, config, forcedName = null, explicitType = "") {
   if (!game.user.isGM) {
@@ -653,7 +711,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   let newItemData = {
     name: refinedName,
     type: foundryItemType,
-    img: imagePath || "icons/svg/d20-highlight.svg",
+    img: imagePath || DEFAULT_ICON,
     system: {
       description: { value: finalDesc },
       rarity: parsed.rarity || "common",
@@ -1337,12 +1395,10 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
 }
 
 /**
- * Create a Foundry Item document from pre-generated data and record it in history.
- * @param {object} result — the object returned by generateItemData()
- * @returns {Item} the created Foundry Item document
- */
-/**
  * Find or create an Item folder by name. If parentId is given, creates as a subfolder.
+ * @param {string} name — folder name (e.g. "AI Items")
+ * @param {string|null} [parentId=null] — parent folder ID for nesting, or null for top-level
+ * @returns {Promise<string>} the folder's ID
  */
 export async function ensureItemFolder(name, parentId = null) {
   const existing = game.folders.find(f => f.name === name && f.type === "Item" && (f.folder?.id ?? f.folder ?? null) === parentId);
@@ -1353,6 +1409,12 @@ export async function ensureItemFolder(name, parentId = null) {
   return folder.id;
 }
 
+/**
+ * Create a Foundry Item document from pre-generated data and record it in history.
+ * @param {object} result — the object returned by generateItemData()
+ * @param {string|null} [folderOverride=null] — folder ID to place the item in, or null for "AI Items"
+ * @returns {Promise<Item|null>} the created Foundry Item document, or null if not GM
+ */
 export async function createItemFromData(result, folderOverride = null) {
   if (!game.user.isGM) {
     ui.notifications.warn("Only the GM can create items.");
@@ -1383,7 +1445,7 @@ export async function createItemFromData(result, folderOverride = null) {
       config,
       explicitType: explicitType || ""
     });
-    if (hist.length > 50) hist.shift();
+    if (hist.length > MAX_HISTORY_ENTRIES) hist.shift();
   }
 
   return createdItem;
@@ -1391,7 +1453,13 @@ export async function createItemFromData(result, folderOverride = null) {
 
 /**
  * Original entry point — generates item data and immediately creates the document.
- * Used by roll table generation and any existing callers. Behavior is identical to pre-refactor.
+ * Used by roll table generation and any existing callers.
+ * @param {string} itemPrompt — user's item description prompt
+ * @param {object} config — GeneratorConfig
+ * @param {string|null} [forcedName=null] — override item name
+ * @param {string} [explicitType=""] — forced item type from UI
+ * @param {string|null} [folderOverride=null] — folder ID to place the item in
+ * @returns {Promise<Item|null>} the created Foundry Item document, or null on failure
  */
 export async function createUniqueItemDoc(itemPrompt, config, forcedName = null, explicitType = "", folderOverride = null) {
   showProgressBar();

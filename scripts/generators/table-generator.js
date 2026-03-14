@@ -8,9 +8,24 @@ import { extractValidJSON } from '../utils/json-utils.js';
 import { showProgressBar, updateProgressBar, hideProgressBar } from '../utils/ui-utils.js';
 import { createUniqueItemDoc, ensureItemFolder } from './item-generator.js';
 
+/** Default icon path used when no item image is available. */
+const DEFAULT_ICON = "icons/svg/d20-highlight.svg";
+
+/** Maximum number of history entries retained per session. */
+const MAX_HISTORY_ENTRIES = 50;
+
 // ---------- JSON Parsing ----------
 
+/**
+ * Parse raw GPT JSON for a roll table, with multi-stage fallback recovery.
+ * @param {string} rawJSON — raw JSON string from GPT
+ * @param {object} config — GeneratorConfig (needed for fixInvalidJSON API call)
+ * @returns {Promise<object>} parsed table object with name, formula, entries, etc.
+ */
 export async function parseTableJSON(rawJSON, config) {
+  if (!rawJSON || typeof rawJSON !== "string") {
+    return { name: "", formula: "1d20", description: "", tableType: "generic", entries: [] };
+  }
   console.debug("Raw Roll Table JSON from GPT:", rawJSON);
   try {
     return JSON.parse(rawJSON);
@@ -38,59 +53,53 @@ export async function parseTableJSON(rawJSON, config) {
  * Build a document-linked TableResult entry.
  * v12: uses type=1, text, documentCollection, documentId
  * v13: uses type="document", name, documentUuid
+ * @param {object} createdItem — the created Foundry Item document
+ * @param {object} entry — parsed GPT entry with minRange, maxRange, weight
+ * @param {boolean} isV13 — true for Foundry v13+ schema
+ * @returns {object} a TableResult data object ready for createEmbeddedDocuments
  */
 function buildDocumentResult(createdItem, entry, isV13) {
-  if (isV13) {
-    return {
-      type: "document",
-      name: createdItem.name,
-      range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-      weight: entry.weight ?? 1,
-      img: createdItem.img || "icons/svg/d20-highlight.svg",
-      documentUuid: createdItem.uuid,
-      drawn: false
-    };
-  } else {
-    return {
-      type: 1,
-      text: createdItem.name,
-      range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-      weight: entry.weight ?? 1,
-      img: createdItem.img || "icons/svg/d20-highlight.svg",
-      documentCollection: "Item",
-      documentId: createdItem.id,
-      drawn: false
-    };
-  }
+  const base = {
+    range: [entry.minRange ?? 1, entry.maxRange ?? 1],
+    weight: entry.weight ?? 1,
+    img: createdItem.img || DEFAULT_ICON,
+    drawn: false
+  };
+  return isV13
+    ? { ...base, type: "document", name: createdItem.name, documentUuid: createdItem.uuid }
+    : { ...base, type: 1, text: createdItem.name, documentCollection: "Item", documentId: createdItem.id };
 }
 
 /**
  * Build a text-only TableResult entry (for failed items or generic tables).
+ * @param {string} text — display text for the table result
+ * @param {object} entry — parsed GPT entry with minRange, maxRange, weight
+ * @param {boolean} isV13 — true for Foundry v13+ schema
+ * @returns {object} a TableResult data object ready for createEmbeddedDocuments
  */
 function buildTextResult(text, entry, isV13) {
-  if (isV13) {
-    return {
-      type: "text",
-      name: text,
-      range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-      weight: entry.weight ?? 1,
-      img: "icons/svg/d20-highlight.svg",
-      drawn: false
-    };
-  } else {
-    return {
-      type: 0,
-      text: text,
-      range: [entry.minRange ?? 1, entry.maxRange ?? 1],
-      weight: entry.weight ?? 1,
-      img: "icons/svg/d20-highlight.svg",
-      drawn: false
-    };
-  }
+  const base = {
+    range: [entry.minRange ?? 1, entry.maxRange ?? 1],
+    weight: entry.weight ?? 1,
+    img: DEFAULT_ICON,
+    drawn: false
+  };
+  return isV13
+    ? { ...base, type: "text", name: text }
+    : { ...base, type: 0, text };
 }
 
 // ---------- Roll Table Creation ----------
 
+/**
+ * Generate a roll table from a description prompt and create the Foundry RollTable document.
+ * Creates items for "items" table type, or text entries for "generic" tables.
+ * @param {string} tableDesc — user's description of the roll table
+ * @param {string} explicitType — forced item type for table entries (e.g. "Weapon")
+ * @param {object} config — GeneratorConfig with apiKey, chatModel, isV13Core, etc.
+ * @param {number} [entryCount=10] — number of table entries to generate
+ * @returns {Promise<void>}
+ */
 export async function createFoundryRollTableFromDialog(tableDesc, explicitType, config, entryCount = 10) {
   if (!game.user.isGM) {
     ui.notifications.warn("Only the GM can generate roll tables.");
@@ -163,7 +172,7 @@ export async function createFoundryRollTableFromDialog(tableDesc, explicitType, 
       rarity: "",
       entryCount: results.length
     });
-    if (hist.length > 50) hist.shift();
+    if (hist.length > MAX_HISTORY_ENTRIES) hist.shift();
   }
 
   updateProgressBar(100);

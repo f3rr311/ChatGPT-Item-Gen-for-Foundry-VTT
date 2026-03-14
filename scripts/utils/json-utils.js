@@ -11,6 +11,8 @@
  *   use extractValidJSON as a further fallback
  */
 export function sanitizeJSON(jsonStr) {
+  if (!jsonStr || typeof jsonStr !== "string") return "{}";
+
   // Fast path: already valid
   try {
     JSON.parse(jsonStr);
@@ -37,7 +39,15 @@ export function sanitizeJSON(jsonStr) {
   }
 }
 
+/**
+ * Extract a JSON object from a raw string that may contain surrounding text.
+ * Handles truncated JSON by closing unclosed brackets/braces.
+ * @param {string} raw — raw text potentially containing a JSON object
+ * @returns {string} extracted JSON string (best effort; may still be invalid)
+ */
 export function extractValidJSON(raw) {
+  if (!raw || typeof raw !== "string") return "{}";
+
   // First try to find a complete JSON object
   const match = raw.match(/{[\s\S]*}/);
   if (match) {
@@ -70,5 +80,5 @@ export function extractValidJSON(raw) {
     return jsonText;
   }
 
-  return raw;
+  return "{}";
 }

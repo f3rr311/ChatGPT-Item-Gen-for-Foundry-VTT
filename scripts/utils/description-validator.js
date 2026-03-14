@@ -40,7 +40,11 @@ const SKILLS = new Set([
 
 const SENSES = ["darkvision", "blindsight", "tremorsense", "truesight"];
 
-/** Capitalize the first letter of a string. */
+/**
+ * Capitalize the first letter of a string.
+ * @param {string} s — input string
+ * @returns {string} capitalized string, or "" if input is falsy
+ */
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
 
 /**
@@ -55,8 +59,12 @@ const ARMOR_SYSTEM_TARGETS = new Set(["ac", "stealth"]);
 
 /**
  * Try to add an Active Effect from a mechanical effect descriptor.
- * Checks for duplicates before adding. Returns true if added.
- * @param {boolean} isArmorItem — if true, skip effects already handled by armor system
+ * Checks for duplicates before adding.
+ * @param {Array<object>} effects — the item's effects array (mutated)
+ * @param {object} mechEffect — effect descriptor with type, target, value, name
+ * @param {string} img — item image path for the effect icon
+ * @param {boolean} [isArmorItem=false] — if true, skip effects already handled by armor system
+ * @returns {boolean} true if an effect was added, false if skipped/duplicate
  */
 function tryAddEffect(effects, mechEffect, img, isArmorItem = false) {
   if (!mechEffect.type || !mechEffect.target) return false;
@@ -84,7 +92,10 @@ function tryAddEffect(effects, mechEffect, img, isArmorItem = false) {
 
 /**
  * Try to add an extra damage activity. De-duplicates by damage type.
- * Returns true if added.
+ * @param {object} activities — the item's activities map (mutated)
+ * @param {string} formula — dice formula (e.g. "1d6")
+ * @param {string} dmgType — damage type (e.g. "fire", "radiant")
+ * @returns {boolean} true if an activity was added, false if skipped/duplicate
  */
 function tryAddExtraDamage(activities, formula, dmgType) {
   if (!DAMAGE_TYPES.has(dmgType)) return false;
@@ -106,6 +117,19 @@ function tryAddExtraDamage(activities, formula, dmgType) {
 
 // ---------- Pass 1: Regex Scan ----------
 
+/**
+ * Pass 1: scan item description with regex patterns to find mechanical effects.
+ * @param {object} activities — the item's activities map (mutated)
+ * @param {Array<object>} effects — the item's effects array (mutated)
+ * @param {string} text — plain text description (HTML stripped)
+ * @param {string} textLC — lowercase version of text
+ * @param {string} foundryItemType — Foundry item type (e.g. "weapon", "equipment")
+ * @param {object} config — module config (needs isDnd5eV4)
+ * @param {string} img — item image path
+ * @param {boolean} isArmorItem — true if armor (skips AC/stealth effects)
+ * @param {string} weaponClassification — weapon classification code (e.g. "simpleM")
+ * @returns {{addedAct: number, addedEff: number}} count of added activities and effects
+ */
 function regexScan(activities, effects, text, textLC, foundryItemType, config, img, isArmorItem, weaponClassification) {
   let addedAct = 0;
   let addedEff = 0;
@@ -277,6 +301,17 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
 
 // ---------- Pass 2: GPT Informed Scan ----------
 
+/**
+ * Pass 2: send description to GPT to find mechanical effects regex missed.
+ * @param {object} activities — the item's activities map (mutated)
+ * @param {Array<object>} effects — the item's effects array (mutated)
+ * @param {string} description — raw HTML description
+ * @param {string} foundryItemType — Foundry item type
+ * @param {object} config — module config (needs apiKey, isDnd5eV4)
+ * @param {string} img — item image path
+ * @param {boolean} isArmorItem — true if armor
+ * @returns {Promise<{addedAct: number, addedEff: number}>} count of added activities and effects
+ */
 async function gptScan(activities, effects, description, foundryItemType, config, img, isArmorItem) {
   let addedAct = 0;
   let addedEff = 0;
