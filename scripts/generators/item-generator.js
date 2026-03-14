@@ -22,8 +22,10 @@ import {
 import { generateItemName } from './name-generator.js';
 import { validateAndEnrichItem } from '../utils/description-validator.js';
 import { validateAgainstCompendium, checkDuplicates, getCompendiumDefaults } from '../utils/compendium-utils.js';
-
-const WEAPON_KEYWORDS = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "club", "sabre", "blade", "lance", "longbow", "shortbow", "sling", "javelin", "handaxe", "warhammer", "maul", "staff", "katana"];
+import {
+  WEAPON_KEYWORDS, ARMOR_KEYWORDS, CONSUMABLE_KEYWORDS,
+  TOOL_KEYWORDS, LOOT_KEYWORDS, CLOTHING_KEYWORDS
+} from '../utils/type-keywords.js';
 
 /** Word-boundary check to prevent substring false positives (e.g. "ring" in "charging") */
 function hasWord(text, word) {
@@ -37,6 +39,19 @@ const VALID_WEAPON_CODES = ["simpleM", "martialM", "simpleR", "martialR"];
 const WEIGHTLESS_TYPES = ["spell", "feat", "background"];
 const NO_MAGIC_PROPS_TYPES = ["spell", "feat", "background"];
 
+/** Rarities that imply the item is magical in D&D 5e. */
+const HIGH_RARITY = ["rare", "very rare", "legendary", "artifact"];
+
+/**
+ * Check if GPT flagged the item as magical via parsed.magical or parsed.magic.
+ * @param {object} parsed — the parsed GPT JSON
+ * @returns {boolean} true if GPT indicated the item is magical
+ */
+function hasMagicalFlag(parsed) {
+  return (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true")
+    || (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true");
+}
+
 /**
  * Infer magical bonus from rarity when GPT and description scanning both fail.
  * D&D 5e convention: uncommon=+1, rare=+2, very rare=+3, legendary/artifact=+3.
@@ -48,21 +63,7 @@ function inferMagicalBonusFromRarity(rarity) {
   return RARITY_BONUS[r] || 0;
 }
 
-/** Consumable detection keywords for fallback type resolution */
-const CONSUMABLE_DETECT_KEYWORDS = ["potion", "elixir", "philter", "draught", "scroll", "poison", "toxin", "venom", "ration", "tonic", "salve", "balm", "oil", "brew", "concoction"];
-
-/** Tool detection keywords for fallback type resolution */
-const TOOL_DETECT_KEYWORDS = [
-  "dice set", "dice game", "gaming set", "playing card", "thieves' tools", "thieves tools", "lockpick",
-  "alchemist's supplies", "brewer's supplies", "calligrapher's supplies", "carpenter's tools", "cartographer's tools",
-  "cobbler's tools", "cook's utensils", "glassblower's tools", "jeweler's tools", "leatherworker's tools",
-  "mason's tools", "painter's supplies", "potter's tools", "smith's tools", "tinker's tools", "weaver's tools",
-  "woodcarver's tools", "disguise kit", "forgery kit", "herbalism kit", "navigator's tools", "poisoner's kit",
-  "lute", "drum", "flute", "lyre", "bagpipe", "dulcimer", "shawm", "viol", "pan pipes"
-];
-
-/** Loot detection keywords for fallback type resolution */
-const LOOT_DETECT_KEYWORDS = ["gold coin", "silver coin", "copper coin", "platinum coin", "gemstone", "raw gem", "uncut gem"];
+// Type-detection keyword arrays imported from utils/type-keywords.js
 
 // ---------- JSON Parsing ----------
 
@@ -147,7 +148,7 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
   const nameLC = generatedName.toLowerCase();
   const descLC = finalDesc.toLowerCase();
   const combinedLC = nameLC + " " + descLC;
-  const descWeaponKeywords = ["sword", "cutlass", "sabre", "blade", "axe", "bow", "mace", "halberd", "flail", "club", "spear", "pike", "scimitar", "katana", "claymore", "naginata", "glaive", "rapier", "longsword", "shortsword", "greatsword"];
+  // Reuse shared WEAPON_KEYWORDS for description-based weapon detection
 
   // Spell: structured fields are definitive
   if (foundryItemType !== "spell" && parsed.level !== undefined && parsed.school) {
@@ -166,7 +167,7 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
 
   // Weapon: description keywords — override if not already weapon/spell/feat
   if (!["weapon", "spell", "feat"].includes(foundryItemType)) {
-    if (descBonuses.weaponHint || descWeaponKeywords.some(term => hasWord(descLC, term))) {
+    if (descBonuses.weaponHint || WEAPON_KEYWORDS.some(term => hasWord(descLC, term))) {
       foundryItemType = "weapon";
     }
   }
@@ -182,9 +183,9 @@ function applyHighConfidenceOverrides(foundryItemType, generatedName, finalDesc,
  */
 function applyFallbackTypeOverrides(foundryItemType, combinedLC) {
   if (foundryItemType !== "equipment") return foundryItemType;
-  if (CONSUMABLE_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "consumable";
-  if (TOOL_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "tool";
-  if (LOOT_DETECT_KEYWORDS.some(term => combinedLC.includes(term))) return "loot";
+  if (CONSUMABLE_KEYWORDS.some(term => combinedLC.includes(term))) return "consumable";
+  if (TOOL_KEYWORDS.some(term => combinedLC.includes(term))) return "tool";
+  if (LOOT_KEYWORDS.some(term => combinedLC.includes(term))) return "loot";
   return foundryItemType;
 }
 
@@ -198,10 +199,7 @@ function resolveEquipmentSubtype(nameLC, combinedText) {
   if (hasWord(combinedText, "ring")) return "ring";
   if (hasWord(combinedText, "rod"))  return "rod";
   if (hasWord(combinedText, "wand")) return "wand";
-  const clothingKeywords = ["clothing", "robe", "cloak", "boots", "gloves", "hat", "helm", "belt",
-    "bracers", "cape", "mantle", "amulet", "necklace", "pendant", "circlet", "crown", "tiara",
-    "goggles", "vestment", "gauntlet", "slippers", "sandals"];
-  if (clothingKeywords.some(k => hasWord(combinedText, k))) return "clothing";
+  if (CLOTHING_KEYWORDS.some(k => hasWord(combinedText, k))) return "clothing";
   if (hasWord(combinedText, "trinket")) return "trinket";
   if (hasWord(combinedText, "vehicle")) return "vehicle";
   return "wondrous";
@@ -1017,13 +1015,9 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // Skip for spells, feats, and backgrounds — they don't get random magical properties
 
   if (!NO_MAGIC_PROPS_TYPES.includes(foundryItemType)) {
-    const isMagic = (
-      (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true") ||
-      (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
-    );
-    const magList = ["rare", "very rare", "legendary", "artifact"];
+    const isMagic = hasMagicalFlag(parsed);
     const rarityLower = (parsed.rarity || "").toLowerCase();
-    if (isMagic || (magList.includes(rarityLower) && Math.random() < 0.5)) {
+    if (isMagic || (HIGH_RARITY.includes(rarityLower) && Math.random() < 0.5)) {
       const count = Math.floor(Math.random() * 3) + 1;
       const magProps = await generateMagicalProperties(newItemData, count, config);
       if (magProps) {
@@ -1037,8 +1031,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // (light, medium, heavy, natural, shield). The AC fields must be populated.
   // Uses ARMOR_DEFAULTS for PHB-accurate stats, just like weapons use WEAPON_DEFAULTS.
 
-  const armorDetectKeywords = ["armor", "shield", "mail ", "plate", "breastplate", "chainmail", "chain shirt", "half plate", "splint", "hide armor"];
-  const promptHasArmor = !explicitType && armorDetectKeywords.some(k => itemPrompt.toLowerCase().includes(k));
+  const promptHasArmor = !explicitType && ARMOR_KEYWORDS.some(k => itemPrompt.toLowerCase().includes(k));
 
   const isArmorItem = explicitType === "Armor"
     || (parsed.armorType && ["light", "medium", "heavy", "natural", "shield"].includes((parsed.armorType || "").toLowerCase()))
@@ -1223,10 +1216,9 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // Equipment properties: set mgc for magical items
     let equipProps = newItemData.system.properties || [];
     const isMagicalEquip = (newItemData.system.magicalBonus && newItemData.system.magicalBonus > 0)
-      || (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true")
-      || (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
+      || hasMagicalFlag(parsed)
       || (parsed.requiresAttunement)
-      || ["rare", "very rare", "legendary", "artifact"].includes((parsed.rarity || "").toLowerCase());
+      || HIGH_RARITY.includes((parsed.rarity || "").toLowerCase());
     if (isMagicalEquip && config.isDnd5eV4) {
       if (!equipProps.includes("mgc")) equipProps.push("mgc");
       // Focus property for rods, wands, staffs (can be used as spellcasting focus)
@@ -1254,9 +1246,8 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // Consumable properties — magical consumables should have mgc
     if (config.isDnd5eV4) {
       let consProps = newItemData.system.properties || [];
-      const isMagicalCons = (parsed.magical !== undefined && String(parsed.magical).toLowerCase() === "true")
-        || (parsed.magic !== undefined && String(parsed.magic).toLowerCase() === "true")
-        || ["rare", "very rare", "legendary", "artifact"].includes((parsed.rarity || "").toLowerCase())
+      const isMagicalCons = hasMagicalFlag(parsed)
+        || HIGH_RARITY.includes((parsed.rarity || "").toLowerCase())
         || consType === "scroll" || consType === "potion";
       if (isMagicalCons && !consProps.includes("mgc")) {
         consProps.push("mgc");

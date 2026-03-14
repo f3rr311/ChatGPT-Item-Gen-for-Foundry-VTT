@@ -5,6 +5,10 @@
 import { ensureFolder, saveImageLocally } from '../utils/file-utils.js';
 import { generateSDImage } from './stable-diffusion.js';
 import { MODULE_ID } from '../settings.js';
+import {
+  WEAPON_KEYWORDS, ARMOR_KEYWORDS, CONSUMABLE_KEYWORDS,
+  SPELL_KEYWORDS, FEAT_KEYWORDS
+} from '../utils/type-keywords.js';
 
 const CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
@@ -171,26 +175,22 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
       // analyze the prompt to pick the best prompt block.
       if (!explicitType) {
         const promptLC = prompt.toLowerCase();
-        const armorHints = ["armor", "shield", "mail ", "plate", "breastplate", "chainmail", "chain shirt", "half plate", "splint", "hide armor", "scale mail", "ring mail"];
-        const spellHints = ["spell", "cantrip", "incantation"];
-        const featHints = ["feat", "feature", "ability"];
-        const consumableHints = ["potion", "elixir", "philter", "draught", "scroll", "poison", "tonic", "salve", "oil", "balm", "brew", "concoction", "antidote", "vial"];
-        const weaponHints = ["sword", "dagger", "axe", "bow", "mace", "halberd", "flail", "lance", "javelin", "warhammer", "maul", "rapier", "scimitar", "trident", "pike", "glaive", "morningstar", "crossbow", "longbow", "shortbow", "whip", "katana", "blade", "cutlass", "sabre", "musket", "pistol"];
-        if (armorHints.some(k => promptLC.includes(k))) {
+        // Keyword arrays imported from utils/type-keywords.js
+        if (ARMOR_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = ARMOR_PROMPT_BLOCK;
-        } else if (spellHints.some(k => promptLC.includes(k))) {
+        } else if (SPELL_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = SPELL_PROMPT_BLOCK;
           maxTokens = 1400;
-        } else if (featHints.some(k => promptLC.includes(k))) {
+        } else if (FEAT_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = FEAT_PROMPT_BLOCK;
-        } else if (consumableHints.some(k => promptLC.includes(k))) {
+        } else if (CONSUMABLE_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = "This is a consumable item (potion, scroll, poison, etc.). " +
             "Include 'itemType' set to 'consumable' in the JSON. " +
             "Include the consumable subtype as 'consumableType' (one of 'potion','scroll','poison','food','ammo','trinket','wand','rod'). " +
             "If this is a healing potion, the description MUST mention the exact healing dice formula (e.g. '2d4+2 hit points' or '4d4+4 hit points'). " +
             "If this consumable grants temporary effects when used (e.g. a potion of strength grants a strength bonus, a potion of speed grants extra movement, a poison applies the poisoned condition, an elixir grants fire resistance), you MUST include 'mechanicalEffects' as an array describing each effect. " +
             "Also include 'effectDuration' as an object with 'value' (number) and 'unit' (one of 'round','minute','hour','day') for how long the consumable's effects last. ";
-        } else if (weaponHints.some(k => promptLC.includes(k))) {
+        } else if (WEAPON_KEYWORDS.some(k => promptLC.includes(k))) {
           typePrompt = WEAPON_PROMPT_BLOCK;
         } else {
           // No type hints found — use a general-purpose prompt that lets GPT decide
