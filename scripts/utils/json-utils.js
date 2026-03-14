@@ -7,7 +7,8 @@
  * Attempt to parse a JSON string, recovering from common issues like
  * markdown fences, trailing commas, or unescaped characters.
  * @param {string} jsonStr — raw string that should contain JSON
- * @returns {string} cleaned JSON string (parseable), or the original if unrecoverable
+ * @returns {string} cleaned JSON string — may not be valid JSON; caller should
+ *   use extractValidJSON as a further fallback
  */
 export function sanitizeJSON(jsonStr) {
   // Fast path: already valid

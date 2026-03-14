@@ -20,7 +20,6 @@ import { openHistoryDialog } from './ui/history-dialog.js';
  * @property {string[]} keywords — Item keyword list for name forcing
  * @property {string} imageFolder — Foundry data folder for generated images
  * @property {boolean} isDnd5eV4 — true if dnd5e system version >= 4.0.0
- * @property {boolean} isDnd5eV5 — true if dnd5e system version >= 5.0.0
  * @property {string|null} dnd5eVersion — dnd5e system version string, or null
  * @property {boolean} isV13Core — true if Foundry core version >= 13
  */
@@ -40,7 +39,6 @@ function buildConfig() {
     // isNewerVersion(a, b) returns true if a > b.
     // !isNewerVersion("4.0.0", sysVer) => sysVer >= "4.0.0"
     isDnd5eV4: isDnd5e && !foundry.utils.isNewerVersion("4.0.0", sysVer),
-    isDnd5eV5: isDnd5e && !foundry.utils.isNewerVersion("5.0.0", sysVer),
     dnd5eVersion: isDnd5e ? sysVer : null,
     isV13Core: game.release.generation >= 13
   };

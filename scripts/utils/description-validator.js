@@ -62,14 +62,14 @@ const ARMOR_SYSTEM_TARGETS = new Set(["ac", "stealth"]);
  * Checks for duplicates before adding. Returns true if added.
  * @param {boolean} isArmorItem — if true, skip effects already handled by armor system
  */
-function tryAddEffect(effects, me, img, isArmorItem = false) {
-  if (!me.type || !me.target) return false;
+function tryAddEffect(effects, mechEffect, img, isArmorItem = false) {
+  if (!mechEffect.type || !mechEffect.target) return false;
 
   // Armor items: AC and stealth are handled by system.armor / properties
   // Adding Active Effects for these would double-count
-  if (isArmorItem && ARMOR_SYSTEM_TARGETS.has(me.target?.toLowerCase())) return false;
+  if (isArmorItem && ARMOR_SYSTEM_TARGETS.has(mechEffect.target?.toLowerCase())) return false;
 
-  const change = mapEffectChange(me.type, me.target, me.value);
+  const change = mapEffectChange(mechEffect.type, mechEffect.target, mechEffect.value);
   if (!change) return false;
 
   // De-duplicate: skip if an effect with this exact key already exists
@@ -78,7 +78,7 @@ function tryAddEffect(effects, me, img, isArmorItem = false) {
   );
   if (already) return false;
 
-  const name = me.name || `${cap(me.target)} ${cap(me.type)}`;
+  const name = mechEffect.name || `${cap(mechEffect.target)} ${cap(mechEffect.type)}`;
   effects.push(buildActiveEffect(name, [change], {
     transfer: true,
     img: img
@@ -139,7 +139,7 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
       const dmgType = match[2].toLowerCase();
       if (tryAddExtraDamage(activities, formula, dmgType)) {
         addedAct++;
-        console.debug(`Validator (regex): Added Extra ${cap(dmgType)} Damage`);
+
       }
     }
   }
@@ -156,7 +156,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
         if (match[1].includes(dt)) {
           if (tryAddEffect(effects, { name: `${cap(dt)} Resistance`, type: "resistance", target: dt, value: true }, img, isArmorItem)) {
             addedEff++;
-            console.debug(`Validator (regex): Added ${dt} resistance`);
           }
         }
       }
@@ -171,7 +170,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
       if (dmgImmMatch[1].includes(dt)) {
         if (tryAddEffect(effects, { name: `${cap(dt)} Damage Immunity`, type: "immunity", target: dt, value: true }, img, isArmorItem)) {
           addedEff++;
-          console.debug(`Validator (regex): Added ${dt} damage immunity`);
         }
       }
     }
@@ -189,7 +187,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
       if (CONDITIONS.has(cond)) {
         if (tryAddEffect(effects, { name: `${cap(cond)} Immunity`, type: "immunity", target: cond, value: true }, img, isArmorItem)) {
           addedEff++;
-          console.debug(`Validator (regex): Added ${cond} condition immunity`);
         }
       }
     }
@@ -204,7 +201,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
       const label = skillName.split(" ").map(w => cap(w)).join(" ");
       if (tryAddEffect(effects, { name: `${label} Advantage`, type: "advantage", target: skillName, value: "1" }, img, isArmorItem)) {
         addedEff++;
-        console.debug(`Validator (regex): Added ${skillName} advantage`);
       }
     }
   }
@@ -222,7 +218,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
         if (distance > 0) {
           if (tryAddEffect(effects, { name: `${cap(sense)} ${distance} ft.`, type: "sense", target: sense, value: distance }, img, isArmorItem)) {
             addedEff++;
-            console.debug(`Validator (regex): Added ${sense} ${distance}ft`);
           }
         }
         break;
@@ -245,7 +240,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
       if (distance > 0) {
         if (tryAddEffect(effects, { name: `${cap(type)} Speed +${distance} ft.`, type: "speed", target: type, value: distance }, img, isArmorItem)) {
           addedEff++;
-          console.debug(`Validator (regex): Added ${type} speed +${distance}ft`);
         }
       }
     }
@@ -265,7 +259,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
         if (bonus > 0 && bonus <= 5) {
           if (tryAddEffect(effects, { name: `AC +${bonus}`, type: "bonus", target: "ac", value: bonus }, img)) {
             addedEff++;
-            console.debug(`Validator (regex): Added AC +${bonus}`);
           }
         }
         break;
@@ -281,7 +274,6 @@ function regexScan(activities, effects, text, textLC, foundryItemType, config, i
     if (bonus > 0 && bonus <= 5) {
       if (tryAddEffect(effects, { name: `Save Bonus +${bonus}`, type: "bonus", target: "all saves", value: bonus }, img, isArmorItem)) {
         addedEff++;
-        console.debug(`Validator (regex): Added save bonus +${bonus}`);
       }
     }
   }
@@ -302,21 +294,19 @@ async function gptScan(activities, effects, description, foundryItemType, config
 
   // Process mechanical effects from GPT
   if (gptResult.mechanicalEffects && gptResult.mechanicalEffects.length > 0) {
-    for (const me of gptResult.mechanicalEffects) {
-      if (tryAddEffect(effects, me, img, isArmorItem)) {
+    for (const mechEffect of gptResult.mechanicalEffects) {
+      if (tryAddEffect(effects, mechEffect, img, isArmorItem)) {
         addedEff++;
-        console.debug(`Validator (GPT): Added ${me.name || me.type + "." + me.target}`);
       }
     }
   }
 
   // Process extra damage from GPT (weapons only)
   if (foundryItemType === "weapon" && config.isDnd5eV4 && gptResult.extraDamage && gptResult.extraDamage.length > 0) {
-    for (const ed of gptResult.extraDamage) {
-      const dmgType = (ed.type || "").toLowerCase();
-      if (tryAddExtraDamage(activities, ed.formula, dmgType)) {
+    for (const extraDmg of gptResult.extraDamage) {
+      const dmgType = (extraDmg.type || "").toLowerCase();
+      if (tryAddExtraDamage(activities, extraDmg.formula, dmgType)) {
         addedAct++;
-        console.debug(`Validator (GPT): Added Extra ${cap(dmgType)} Damage`);
       }
     }
   }

@@ -47,6 +47,6 @@ export async function saveImageLocally(dataUrl, fileName, targetFolder) {
     return upload.path;
   } catch (err) {
     console.error("Error saving image locally:", err);
-    return "";
+    return null;
   }
 }

@@ -6,7 +6,7 @@
 import { generateRollTableJSON, fixInvalidJSON } from '../api/openai.js';
 import { extractValidJSON } from '../utils/json-utils.js';
 import { showProgressBar, updateProgressBar, hideProgressBar } from '../utils/ui-utils.js';
-import { createUniqueItemDoc, getOrCreateItemFolder } from './item-generator.js';
+import { createUniqueItemDoc, ensureItemFolder } from './item-generator.js';
 
 // ---------- JSON Parsing ----------
 
@@ -121,9 +121,9 @@ export async function createFoundryRollTableFromDialog(tableDesc, explicitType, 
     // Create a subfolder under "AI Items" named after the roll table
     let tableFolderId = null;
     try {
-      const parentId = await getOrCreateItemFolder("AI Items");
+      const parentId = await ensureItemFolder("AI Items");
       const tableName = parsedTable.name || tableDesc || "GPT Roll Table";
-      tableFolderId = await getOrCreateItemFolder(tableName, parentId);
+      tableFolderId = await ensureItemFolder(tableName, parentId);
     } catch (err) {
       console.warn("chatgpt-item-generator: Could not create table folder:", err.message);
     }

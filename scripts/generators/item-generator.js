@@ -559,7 +559,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   // special powers in the description text. We extract these to fill gaps
   // in the structured JSON fields.
   const descBonuses = parseDescriptionBonuses(finalDesc);
-  console.debug("Description scan results:", descBonuses);
 
   // Refine the item name based on the description if no override was provided
   let refinedName = (forcedName && forcedName.trim().length > 0)
@@ -869,7 +868,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
   if (foundryItemType === "spell") {
     // Scan description for fallback hints (like weapon description scanning)
     const spellHints = parseSpellDescription(finalDesc);
-    console.debug("Spell description scan results:", spellHints);
 
     // --- Level ---
     let spellLevel = parseInt(parsed.level, 10);
@@ -977,11 +975,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
 
   if (foundryItemType === "feat") {
     const featType = (parsed.featType || "feat").toLowerCase();
-    if (config.isDnd5eV4) {
-      newItemData.system.type = { value: featType };
-    } else {
-      newItemData.system.type = { value: featType };
-    }
+    newItemData.system.type = { value: featType };
 
     if (parsed.requirements) {
       newItemData.system.requirements = parsed.requirements;
@@ -1041,8 +1035,6 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     // This works like weapon hint detection: scan the name + description for
     // known armor types and use PHB-accurate defaults.
     const armorHint = parseDescriptionForArmor(refinedName + " " + finalDesc + " " + itemPrompt);
-    if (armorHint) {
-    }
 
     // Armor type: PHB defaults > GPT > fallback
     const VALID_ARMOR_TYPES = ["light", "medium", "heavy", "natural", "shield"];
@@ -1344,7 +1336,7 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
 /**
  * Find or create an Item folder by name. If parentId is given, creates as a subfolder.
  */
-export async function getOrCreateItemFolder(name, parentId = null) {
+export async function ensureItemFolder(name, parentId = null) {
   const existing = game.folders.find(f => f.name === name && f.type === "Item" && (f.folder?.id ?? f.folder ?? null) === parentId);
   if (existing) return existing.id;
   const data = { name, type: "Item" };
@@ -1358,7 +1350,7 @@ export async function createItemFromData(result, folderOverride = null) {
 
   // Place item in the specified folder, or default "AI Items" folder
   try {
-    newItemData.folder = folderOverride ?? await getOrCreateItemFolder("AI Items");
+    newItemData.folder = folderOverride ?? await ensureItemFolder("AI Items");
   } catch (err) {
     console.warn("chatgpt-item-generator: Could not assign folder:", err.message);
   }
@@ -1392,6 +1384,7 @@ export async function createItemFromData(result, folderOverride = null) {
 export async function createUniqueItemDoc(itemPrompt, config, forcedName = null, explicitType = "", folderOverride = null) {
   showProgressBar();
   const result = await generateItemData(itemPrompt, config, forcedName, explicitType);
+  if (!result) { hideProgressBar(); return null; }
   const createdItem = await createItemFromData(result, folderOverride);
   updateProgressBar(100);
   hideProgressBar();

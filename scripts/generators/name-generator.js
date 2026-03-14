@@ -19,17 +19,14 @@ export function forceKeywordInName(name, prompt, desc = "") {
 
   let forcedName = name;
   if (promptLC.includes("class change") && !name.toLowerCase().includes("class change")) {
-    console.debug("Forcing 'Class Change' into item name.");
     forcedName = forcedName + " Class Change";
   }
   for (let keyword of KEYWORDS) {
     if (promptLC.includes(keyword) && !name.toLowerCase().includes(keyword)) {
-      console.debug(`Forcing keyword "${keyword}" into name.`);
       forcedName = `${forcedName} ${keyword.charAt(0).toUpperCase() + keyword.slice(1)}`;
     }
   }
   if (!promptLC.includes("dragon") && forcedName.toLowerCase().includes("dragon")) {
-    console.debug("Removing 'dragon' from item name as it's not in the prompt.");
     forcedName = forcedName.replace(/dragon/gi, "").replace(/\s+/g, " ").trim();
   }
   return forcedName;

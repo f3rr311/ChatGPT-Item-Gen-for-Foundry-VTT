@@ -61,7 +61,7 @@ async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens
     }
   }
 
-  return data.choices?.[0]?.message?.content?.trim() || "";
+  return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
 // ---------- JSON Fix (uses API) ----------
@@ -195,7 +195,7 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
 
   console.debug("Generated JSON prompt:", jsonPrompt);
 
-  return await chatCompletion(config.apiKey, config.chatModel, jsonPrompt, prompt, maxTokens, true);
+  return await chatCompletion(config.apiKey, config.chatModel, jsonPrompt, prompt, maxTokens, true) || "{}";
 }
 
 // ---------- Item Name Generation ----------
@@ -206,7 +206,7 @@ export async function apiGenerateItemName(prompt, config) {
   const extraNamePrompt = game.settings.get(MODULE_ID, "chatgptNamePrompt");
   const namePrompt = extraNamePrompt + " " + fixedNamePrompt;
 
-  return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, namePrompt, prompt, 20);
+  return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, namePrompt, prompt, 20) || "Unnamed";
 }
 
 // ---------- Item Name Refinement ----------
@@ -221,17 +221,6 @@ Generate a creative fantasy item name that reflects the details and flavor of th
     "You are a master storyteller who names legendary artifacts. Create names that evoke mystery, power, or history — the kind of name bards sing about in taverns.",
     prompt, 20
   ) || currentName;
-}
-
-// ---------- Mismatch Fix ----------
-
-export async function gptFixMismatch(expectedName, foundType, itemName, rawJSON, config) {
-  if (!config.apiKey) return rawJSON;
-  const fixedMismatchPrompt = "You are a Foundry VTT assistant. The item name or prompt indicates it is a " + expectedName + ", but the JSON indicates it is a " + foundType + ". Fix the JSON so that the item is consistent as a " + expectedName + ". ";
-  const extraMismatchPrompt = game.settings.get(MODULE_ID, "chatgptFixMismatchPrompt");
-  const systemMessage = fixedMismatchPrompt + extraMismatchPrompt + "Output only valid JSON.";
-
-  return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, systemMessage, rawJSON, 900, true) || rawJSON;
 }
 
 // ---------- Item Effect Validation ----------
@@ -352,7 +341,7 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
 
   // Scale token budget: ~125 tokens per entry (structured fields + text)
   const maxTokens = Math.max(1500, entryCount * 125);
-  return await chatCompletion(config.apiKey, config.chatModel, rollTableJSONPrompt, userPrompt, maxTokens, true);
+  return await chatCompletion(config.apiKey, config.chatModel, rollTableJSONPrompt, userPrompt, maxTokens, true) || "{}";
 }
 
 // ---------- Image Generation ----------
