@@ -1,5 +1,78 @@
 # Update Logs
 
+## v2.3.0 — NPC & Character Generation, Multi-Provider AI, SRD Compliance
+
+*17 new files, 8 modified files, ~7,000 lines of new code.*
+
+### 🎭 AI-Powered Actor Generation
+
+* **NPC Generation:** Describe any creature — the module generates a complete stat block (CR 0–30) with ability scores, HP, AC, actions, traits, spellcasting, legendary actions/resistances, and lair actions. Weapons, spells, and features embedded from compendium when available.
+* **Character Generation:** Create full player characters with class, subclass, race, level, background, ability scores, skills, equipment, spells, personality, and biography. Spell slots computed per class caster type (full/half/third/pact).
+* **SRD Compendium Integration:** SRD races and classes pull traits, features, and spells directly from dnd5e compendium packs with proper icons, descriptions, and advancement flags.
+* **Homebrew Race Support:** Non-SRD races get AI-generated original racial traits as homebrew feat items, balanced against SRD benchmarks. The AI is explicitly instructed to create original content — no copying from published sourcebooks.
+* **Advancement System:** Species and background compendium items processed via advancement handlers — Size, ASI, Trait, ItemGrant, and ItemChoice advancements resolved automatically.
+* **NPC Compendium Lookups:** NPC traits (Sunlight Sensitivity, Undead Fortitude, Magic Resistance, etc.) matched against SRD compendium for proper icons and descriptions. Skip list prevents false positives on common monster actions (Multiattack, Spellcasting, etc.).
+* **Actor Validator:** Strict D&D 5e rule enforcement — HP recomputed from hit dice + CON, proficiency from CR/level, spell slots from class caster tables, AC verified against armor type, ability scores clamped to valid ranges (1–20 characters, 1–30 NPCs), skills/languages/damage types normalized. All corrections shown in preview.
+* **Portrait + Token Images:** Two separate AI images per actor — a character portrait and a circular battle-map token, each regenerable independently.
+* **Actor Preview Dialog:** Review ability scores, stats, embedded items, corrections, and warnings before creating. Regen buttons for name, portrait, token, and full stats.
+* **11 Actor Templates:** 5 NPC archetypes (goblin leader, ancient dragon, undead knight, mysterious merchant, forest guardian) + 5 character archetypes (human fighter, elven wizard, tiefling warlock, dwarven cleric, half-orc barbarian) + 1 placeholder.
+* **Actor Folders:** NPCs auto-placed in "AI NPCs" folder, characters in "AI Characters" folder.
+
+### 🔌 Multi-Provider AI Support
+
+* **Text AI Providers:** OpenAI GPT (default), Google Gemini, xAI Grok, local Ollama, or any OpenAI-compatible custom endpoint.
+* **Image AI Providers:** GPT Image 1 (default), DALL-E 3/2, xAI Aurora, Stability AI, fal.ai.
+* **Provider Registry:** Clean base-class architecture with 10 provider implementations. Each handles its own API format, auth, and model selection.
+* **Settings UI:** Dropdown to select text/image provider, API key field updates contextually with hints. Required field marked with asterisk.
+* **Description-Fed Images:** Item descriptions are now passed to image generation prompts for better visual consistency between text and artwork.
+
+> **Note:** Anthropic Claude was tested as a text provider but removed — Anthropic's API does not support browser-origin CORS requests, which Foundry VTT modules require. Claude works with server-side proxies but not directly from the browser.
+
+### ⚖️ SRD Compliance
+
+* **SRD vs Non-SRD Paths:** SRD races leave the species/background fields for Foundry's built-in wizard. Non-SRD races get fully fleshed-out homebrew traits.
+* **Original Content Only:** AI prompts explicitly instruct: "Do NOT copy from published D&D sourcebooks — create original content."
+* **Mechanical Lookups:** Non-SRD race entries in source code are used only as validator lookup keys (speed, size, darkvision) — game mechanics are not copyrightable.
+* **Legal Disclaimers:** Added SRD content notice and AI-generated content disclaimer to LICENSE and README.
+
+### 🧪 Testing
+
+* **367 Unit Tests** — 213 new tests across 20 test files (up from 154 tests / 13 files in v2.2.1).
+* **Coverage:** Actor utilities, validator rules, advancement handlers, generation pipeline, provider registry.
+* **Live Testing:** NPCs at multiple CRs, SRD characters, homebrew characters, and fully custom races verified in Foundry.
+
+### 🆕 New Files (17)
+
+* `scripts/generators/actor-generator.js` — Actor creation engine (NPC + Character modes)
+* `scripts/generators/actor-validator.js` — D&D 5e rule validation
+* `scripts/utils/actor-utils.js` — Race/class/background data tables and helpers
+* `scripts/utils/advancement-utils.js` — SRD advancement processing
+* `scripts/ui/actor-dialog.js` — Actor generation dialog (NPC/Character)
+* `scripts/ui/actor-preview-dialog.js` — Actor preview with regen buttons
+* `scripts/api/provider-registry.js` — Multi-provider management
+* `scripts/api/providers/base-provider.js` — Abstract provider base class
+* `scripts/api/providers/openai-provider.js` — OpenAI GPT + DALL-E + GPT Image
+* `scripts/api/providers/gemini-provider.js` — Google Gemini
+* `scripts/api/providers/xai-provider.js` — xAI Grok (text)
+* `scripts/api/providers/xai-image-provider.js` — xAI Aurora (images)
+* `scripts/api/providers/ollama-provider.js` — Local Ollama
+* `scripts/api/providers/custom-provider.js` — OpenAI-compatible endpoints
+* `scripts/api/providers/stability-ai-provider.js` — Stability AI images
+* `scripts/api/providers/fal-ai-provider.js` — fal.ai images
+
+### 📝 Modified Files (8)
+
+* `scripts/api/openai.js` — NPC/Character prompt templates, homebrew trait instructions, JSON schemas
+* `scripts/settings.js` — Provider settings, 4 new prompt settings (NPC, character, portrait, token)
+* `scripts/main.js` — Actor directory button, hooks, config builder
+* `scripts/ui/history-dialog.js` — Actor entries with NPC/Character icons
+* `scripts/utils/ui-utils.js` — Cost estimation for actors
+* `scripts/generators/item-generator.js` — Description fed into image prompts
+* `module.json` — Version bump, description update
+* `README.md` — v2.3.0 features, multi-provider docs, legal disclaimers
+
+---
+
 ## v2.2.1 — Rebrand, Major Refactor & UI Fixes
 
 *20 files changed, ~3,000 lines touched across 28 commits.*

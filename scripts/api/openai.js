@@ -1,16 +1,25 @@
 /**
- * OpenAI API calls for chat completions and image generation.
+ * API facade for chat completions and image generation.
+ * Routes text requests through the provider registry; image generation stays here.
  */
 
 import { ensureFolder, saveImageLocally } from '../utils/file-utils.js';
 import { generateSDImage } from './stable-diffusion.js';
+import { stabilityAIProvider } from './providers/stability-ai-provider.js';
+import { falAIProvider } from './providers/fal-ai-provider.js';
+import { xaiImageProvider } from './providers/xai-image-provider.js';
 import { MODULE_ID } from '../settings.js';
+import { routeChatCompletion } from './provider-registry.js';
 import {
   WEAPON_KEYWORDS, ARMOR_KEYWORDS, CONSUMABLE_KEYWORDS,
   SPELL_KEYWORDS, FEAT_KEYWORDS
 } from '../utils/type-keywords.js';
+import {
+  getSubclasses, getClassFeatures, getSubclassLevel,
+  getRaceData, raceHasSubraces, getAllRaces, isRaceSRD,
+  CLASS_SAVING_THROWS, CLASS_SPELLCASTING_ABILITY
+} from '../utils/actor-utils.js';
 
-const CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 const IMAGE_ENDPOINT = "https://api.openai.com/v1/images/generations";
 
 /** Maps image output formats to MIME types and file extensions. */
@@ -26,7 +35,7 @@ const MAX_TOKENS_DEFAULT = 900;
 
 /**
  * Accumulate token usage from an API response onto session/item cost trackers.
- * @param {object} usageData — the `usage` object from the OpenAI response
+ * @param {object} usageData — the `usage` object from the API response
  */
 function trackTokenUsage(usageData) {
   if (!usageData || !game.chatGPTItemGenerator?.sessionCost) return;
@@ -63,13 +72,13 @@ function trackImageGeneration() {
   }
 }
 
-// ---------- Chat Completion Helpers ----------
+// ---------- Chat Completion (routed through provider registry) ----------
 
 /**
- * Send a chat completion request to OpenAI and return the response text.
+ * Send a chat completion request through the active provider.
  * Accumulates token usage on game.chatGPTItemGenerator for cost tracking.
  *
- * @param {string} apiKey — OpenAI API key
+ * @param {GeneratorConfig} config — full module config (routes to correct provider)
  * @param {string} model — model name (e.g. "gpt-4.1")
  * @param {string} systemPrompt — system-level instructions
  * @param {string} userPrompt — user-level prompt text
@@ -77,51 +86,24 @@ function trackImageGeneration() {
  * @param {boolean} [useJsonMode=false] — request JSON response format
  * @returns {Promise<string|null>} trimmed response text, or null on failure
  */
-async function chatCompletion(apiKey, model, systemPrompt, userPrompt, maxTokens, useJsonMode = false) {
-  if (!apiKey || !model) return null;
-  const body = {
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ],
-    max_tokens: maxTokens
-  };
-  if (useJsonMode) {
-    body.response_format = { type: "json_object" };
-  }
-  const response = await fetch(CHAT_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    console.error(`OpenAI chat API error ${response.status}: ${errorBody}`);
-    return null;
-  }
-
-  const data = await response.json();
-  trackTokenUsage(data.usage);
-  return data.choices?.[0]?.message?.content?.trim() || null;
+async function chatCompletion(config, model, systemPrompt, userPrompt, maxTokens, useJsonMode = false) {
+  const result = await routeChatCompletion(config, model, systemPrompt, userPrompt, maxTokens, useJsonMode);
+  if (result?.usage) trackTokenUsage(result.usage);
+  return result?.text || null;
 }
 
 // ---------- JSON Fix (uses API) ----------
 
 /**
- * Ask GPT to fix malformed JSON returned by a previous completion.
+ * Ask the AI to fix malformed JSON returned by a previous completion.
  * @param {string} badJSON — the invalid JSON string to repair
  * @param {GeneratorConfig} config — module config with apiKey, chatModel, etc.
  * @returns {Promise<string>} repaired JSON string, or the original if no API key
  */
 export async function fixInvalidJSON(badJSON, config) {
-  if (!config.apiKey) return badJSON;
+  if (!config.apiKey && !config.textProvider) return badJSON;
   const result = await chatCompletion(
-    config.apiKey,
+    config,
     config.lightModel || config.chatModel,
     "You are a helpful assistant. The user provided invalid JSON. Remove any disclaimers, partial lines, or text outside of the JSON object. If there is text before or after the JSON braces, remove it. Fix it so it's strictly valid JSON with double-quoted property names. No extra commentary.",
     badJSON,
@@ -178,14 +160,13 @@ const ARMOR_PROMPT_BLOCK = "This is armor or a shield. The description MUST ment
 // ---------- Item JSON Generation ----------
 
 /**
- * Generate item JSON via GPT chat completion.
+ * Generate item JSON via chat completion.
  * @param {string} prompt — user's item description prompt
  * @param {GeneratorConfig} config — GeneratorConfig with apiKey, chatModel, etc.
  * @param {string} [explicitType=""] — forced item type (e.g. "Weapon", "Spell")
  * @returns {Promise<string|null>} JSON string of item data, or null on failure
  */
 export async function generateItemJSON(prompt, config, explicitType = "") {
-  if (!config.apiKey) return null;
   const typeNote = explicitType ? ` The item type is ${explicitType}.` : "";
 
   // Select type-specific prompt block
@@ -247,24 +228,23 @@ export async function generateItemJSON(prompt, config, explicitType = "") {
   const fixedJSONInstructions = "Output valid JSON with double-quoted property names and no extra text.";
   const jsonPrompt = extraPrompt + " " + COMMON_PROMPT_BASE + " " + typePrompt + " " + fixedJSONInstructions + typeNote;
 
-  return await chatCompletion(config.apiKey, config.chatModel, jsonPrompt, prompt, maxTokens, true);
+  return await chatCompletion(config, config.chatModel, jsonPrompt, prompt, maxTokens, true);
 }
 
 // ---------- Item Name Generation ----------
 
 /**
- * Generate a creative fantasy item name via GPT.
+ * Generate a creative fantasy item name via AI.
  * @param {string} prompt — item description prompt
  * @param {GeneratorConfig} config — GeneratorConfig with apiKey, lightModel/chatModel
  * @returns {Promise<string|null>} generated name, or null on failure
  */
 export async function apiGenerateItemName(prompt, config) {
-  if (!config.apiKey) return null;
   const fixedNamePrompt = "Generate a creative, evocative fantasy item name. Use vivid or poetic language — names like 'Frostbite\\'s Lament', 'The Ashen Verdict', or 'Whisperwind Blade' rather than plain names like 'Fire Staff' or 'Magic Sword'. Even for well-known items, invent a unique name. Output only the name in plain text, no JSON.";
   const extraNamePrompt = game.settings.get(MODULE_ID, "chatgptNamePrompt");
   const namePrompt = extraNamePrompt + " " + fixedNamePrompt;
 
-  return await chatCompletion(config.apiKey, config.lightModel || config.chatModel, namePrompt, prompt, 20);
+  return await chatCompletion(config, config.lightModel || config.chatModel, namePrompt, prompt, 20);
 }
 
 // ---------- Item Name Refinement ----------
@@ -274,7 +254,7 @@ export async function apiGenerateItemName(prompt, config) {
  * @param {string} currentName — existing name (returned as-is if non-empty)
  * @param {string} description — item description to derive a name from
  * @param {GeneratorConfig} config — GeneratorConfig with apiKey, lightModel/chatModel
- * @returns {Promise<string>} the current name or a GPT-generated one
+ * @returns {Promise<string>} the current name or an AI-generated one
  */
 export async function apiEnsureItemName(currentName, description, config) {
   if (currentName && currentName.trim().length > 0) return currentName;
@@ -282,7 +262,7 @@ export async function apiEnsureItemName(currentName, description, config) {
 Generate a creative fantasy item name that reflects the details and flavor of the description. Output only the name in plain text.`;
 
   return await chatCompletion(
-    config.apiKey, config.lightModel || config.chatModel,
+    config, config.lightModel || config.chatModel,
     "You are a master storyteller who names legendary artifacts. Create names that evoke mystery, power, or history — the kind of name bards sing about in taverns.",
     prompt, 20
   ) || currentName;
@@ -291,7 +271,7 @@ Generate a creative fantasy item name that reflects the details and flavor of th
 // ---------- Item Effect Validation ----------
 
 /**
- * Send an item description back to GPT to identify mechanical effects
+ * Send an item description back to AI to identify mechanical effects
  * that should become Activities or Active Effects.
  * Uses the light/cheap model for speed — this is a validation pass, not generation.
  *
@@ -300,11 +280,9 @@ Generate a creative fantasy item name that reflects the details and flavor of th
  * @param {boolean} isArmorItem — true if the item is armor (skips AC/stealth effects)
  * @param {GeneratorConfig} config — module config with apiKey, lightModel, chatModel
  * @returns {Promise<{mechanicalEffects: Array<object>, extraDamage: Array<object>}|null>}
- *   null when no API key, description too short, or GPT call fails
+ *   null when no API key, description too short, or AI call fails
  */
 export async function gptValidateItemEffects(description, itemType, isArmorItem, config) {
-  if (!config.apiKey) return null;
-
   const plainDesc = description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (plainDesc.length < 20) return null;
 
@@ -323,7 +301,7 @@ export async function gptValidateItemEffects(description, itemType, isArmorItem,
 
   // Armor items: AC, magical bonus, dex cap, and stealth disadvantage are
   // already handled by the armor system fields — NOT Active Effects.
-  // Tell GPT to skip these so they don't double-count.
+  // Tell the AI to skip these so they don't double-count.
   if (isArmorItem) {
     systemPrompt +=
       "\n\nIMPORTANT: This is an armor item. Do NOT include the following as mechanical effects — " +
@@ -339,7 +317,7 @@ export async function gptValidateItemEffects(description, itemType, isArmorItem,
 
   try {
     const result = await chatCompletion(
-      config.apiKey,
+      config,
       config.lightModel || config.chatModel,
       systemPrompt,
       userPrompt,
@@ -347,13 +325,15 @@ export async function gptValidateItemEffects(description, itemType, isArmorItem,
       true
     );
     if (!result) return null;
-    const parsed = JSON.parse(result);
+    // Strip markdown fences — some providers (xAI Grok) wrap JSON despite instructions
+    const cleaned = result.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+    const parsed = JSON.parse(cleaned);
     return {
       mechanicalEffects: Array.isArray(parsed.mechanicalEffects) ? parsed.mechanicalEffects : [],
       extraDamage: Array.isArray(parsed.extraDamage) ? parsed.extraDamage : []
     };
   } catch (err) {
-    console.warn("GPT item validation failed (falling back to regex only):", err.message);
+    console.warn("AI item validation failed (falling back to regex only):", err.message);
     return null;
   }
 }
@@ -368,7 +348,7 @@ export async function gptValidateItemEffects(description, itemType, isArmorItem,
  * @returns {Promise<string|null>} newline-separated property descriptions, or null on failure
  */
 export async function generateMagicalProperties(itemData, count, config) {
-  if (!config?.apiKey || !itemData?.name) return null;
+  if (!config || !itemData?.name) return null;
   const prompt = `Generate ${count} creative, unique, and flavorful magical property descriptions for the following DnD 5e item. Each description should be a concise sentence describing a special ability or effect that fits the item details. Provide each property on its own line.
 
 Item Details:
@@ -382,7 +362,7 @@ Description: ${itemData.system.description.value}
 Output only the descriptions, one per line, with no numbering or extra commentary.`;
 
   return await chatCompletion(
-    config.apiKey, config.lightModel || config.chatModel,
+    config, config.lightModel || config.chatModel,
     "You are an expert DnD magical property generator.",
     prompt, 300
   );
@@ -391,14 +371,14 @@ Output only the descriptions, one per line, with no numbering or extra commentar
 // ---------- Roll Table JSON Generation ----------
 
 /**
- * Generate roll table entries as JSON via GPT.
+ * Generate roll table entries as JSON via AI.
  * @param {string} userPrompt — description of the desired roll table
  * @param {GeneratorConfig} config — GeneratorConfig with apiKey, chatModel
  * @param {number} [entryCount=10] — number of table entries to generate
  * @returns {Promise<string|null>} JSON string with table entries, or null on failure
  */
 export async function generateRollTableJSON(userPrompt, config, entryCount = 10) {
-  if (!config?.apiKey || !userPrompt) return null;
+  if (!config || !userPrompt) return null;
 
   const isGeneric = userPrompt.includes("-- tableType=generic");
 
@@ -423,7 +403,7 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
 
   // Scale token budget: ~125 tokens per entry (structured fields + text)
   const maxTokens = Math.max(1500, entryCount * 125);
-  return await chatCompletion(config.apiKey, config.chatModel, rollTableJSONPrompt, userPrompt, maxTokens, true);
+  return await chatCompletion(config, config.chatModel, rollTableJSONPrompt, userPrompt, maxTokens, true);
 }
 
 // ---------- Image Generation ----------
@@ -437,9 +417,10 @@ export async function generateRollTableJSON(userPrompt, config, entryCount = 10)
 export async function generateItemImage(prompt, config) {
   if (!prompt || !config) return null;
 
-  // Check if Stable Diffusion is enabled
-  const useSD = game.settings.get(MODULE_ID, "stableDiffusionEnabled");
-  if (useSD) {
+  const imageProvider = config.imageProvider || "openai";
+
+  // Route to non-OpenAI image providers
+  if (imageProvider === "stable-diffusion") {
     try {
       const imagePath = await generateSDImage(prompt, config);
       if (imagePath) return imagePath;
@@ -448,9 +429,15 @@ export async function generateItemImage(prompt, config) {
       console.error("Error generating image with Stable Diffusion:", err);
       console.warn("Falling back to OpenAI.");
     }
+  } else if (imageProvider === "stability-ai") {
+    return stabilityAIProvider.generateImage(prompt, config);
+  } else if (imageProvider === "fal-ai") {
+    return falAIProvider.generateImage(prompt, config);
+  } else if (imageProvider === "xai") {
+    return xaiImageProvider.generateImage(prompt, config);
   }
 
-  // OpenAI image generation
+  // OpenAI image generation (default or fallback)
   if (!config.dalleApiKey) return null;
 
   const dallePrompt = game.settings.get(MODULE_ID, "dallePrompt");
@@ -509,6 +496,295 @@ export async function generateItemImage(prompt, config) {
 
     trackImageGeneration();
     return await saveImageLocally(dataUrl, fileName, targetFolder);
+  }
+
+  return null;
+}
+
+// ---------- Actor (NPC / Character) Generation ----------
+
+/** Max tokens for actor JSON completions — stat blocks are larger than items. */
+const MAX_TOKENS_ACTOR = 2500;
+
+const NPC_PROMPT_BASE =
+  "You are a creative fantasy writer and D&D 5e expert. Generate a complete NPC stat block as strictly valid JSON. " +
+  "The JSON must include ALL of these fields:\n" +
+  "- 'name': NPC name (creative, evocative)\n" +
+  "- 'creatureType': one of 'aberration','beast','celestial','construct','dragon','elemental','fey','fiend','giant','humanoid','monstrosity','ooze','plant','undead'\n" +
+  "- 'creatureSubtype': subtype string (e.g. 'goblinoid', 'orc', 'elf') or empty string\n" +
+  "- 'cr': Challenge Rating as a number (0, 0.125, 0.25, 0.5, or 1-30)\n" +
+  "- 'size': 'tiny','small','medium','large','huge','gargantuan'\n" +
+  "- 'alignment': e.g. 'chaotic evil', 'lawful good', 'neutral', 'unaligned'\n" +
+  "- 'abilities': object with 'str','dex','con','int','wis','cha' as numbers (1-30)\n" +
+  "- 'ac': Armor Class number\n" +
+  "- 'acType': what provides the AC (e.g. 'natural armor', 'chain mail', 'leather armor')\n" +
+  "- 'hp': hit point total\n" +
+  "- 'hitDice': hit dice formula (e.g. '5d8+10'). Die size must match creature size: tiny=d4, small=d6, medium=d8, large=d10, huge=d12, gargantuan=d20. The bonus equals (dice count × CON modifier).\n" +
+  "- 'speed': object with 'walk' (number in feet), and optionally 'fly','swim','climb','burrow','hover'\n" +
+  "- 'savingThrows': array of ability names the NPC is proficient in (e.g. ['wisdom','constitution'])\n" +
+  "- 'skills': array of skill names the NPC is proficient in (e.g. ['perception','stealth'])\n" +
+  "- 'senses': object with 'darkvision','blindsight','tremorsense','truesight' as numbers in feet (0 if none)\n" +
+  "- 'languages': array of language names (e.g. ['common','goblin'])\n" +
+  "- 'damageResistances': array of damage types (e.g. ['fire','cold'])\n" +
+  "- 'damageImmunities': array of damage types\n" +
+  "- 'conditionImmunities': array of condition names (e.g. ['charmed','frightened'])\n" +
+  "- 'actions': array of attack/action objects, each with 'name','type' ('weapon' or 'special'),'attackType' ('melee' or 'ranged'),'damage' (dice formula like '1d6+3'),'damageType' (e.g. 'slashing'),'reach' or 'range' (string like '5 ft.' or '80/320 ft.'), and 'description' (for special actions). IMPORTANT: CR 2+ creatures should almost always have a Multiattack action (type 'special') describing how many attacks they make per turn. CR 2-4: 2 attacks. CR 5-10: 2-3 attacks. CR 11+: 3+ attacks. Multiattack is listed first in the actions array.\n" +
+  "- 'traits': array of passive trait objects, each with 'name' and 'description'\n" +
+  "- 'legendaryActions': array of legendary action objects with 'name','description','cost' (default 1), or empty array\n" +
+  "- 'legendaryResistances': number of legendary resistances per day (0 if none)\n" +
+  "- 'spellcasting': object with 'ability' (e.g. 'wisdom'), 'level' (caster level), 'spells' (array of spell names), or null if non-caster\n" +
+  "- 'description': rich HTML backstory/description (2-3 paragraphs of evocative lore — who they are, their motivations, appearance, mannerisms, and role in the world). Begin with '<b>NPC Name:</b> name<br>' prefix.\n" +
+  "BALANCE GUIDELINES: Follow DMG CR benchmarks. CR 1: AC 13, HP 71-85, +3 attack, 9-14 dmg/rd. CR 2: AC 13, HP 86-100, +3 attack, 15-20 dmg/rd. CR 3: AC 13, HP 101-115, +4 attack, 21-26 dmg/rd. CR 5: AC 15, HP 131-145, +6 attack, 33-38 dmg/rd. CR 10: AC 17, HP 206-220, +7 attack, 63-68 dmg/rd. High AC or many resistances/immunities should be offset by lower HP. Total damage/round (all attacks combined) should match the CR benchmark.\n" +
+  "Output ONLY the JSON. No commentary, no markdown fences.";
+
+const CHARACTER_PROMPT_BASE =
+  "You are a creative fantasy writer and D&D 5e expert. Generate a complete player character as strictly valid JSON. " +
+  "The JSON must include ALL of these fields:\n" +
+  "- 'name': character name (creative, evocative)\n" +
+  "- 'race': race name (e.g. 'human','elf','dwarf','half-orc','tiefling','dragonborn','halfling','gnome','half-elf')\n" +
+  "- 'class': class name (e.g. 'fighter','wizard','rogue','cleric','ranger','paladin','bard','warlock','sorcerer','druid','monk','barbarian','artificer')\n" +
+  "- 'subclass': subclass name (e.g. 'champion','evocation','thief','life domain','hunter','oath of devotion')\n" +
+  "- 'level': character level (1-20)\n" +
+  "- 'background': background name (e.g. 'soldier','sage','criminal','outlander','noble')\n" +
+  "- 'alignment': e.g. 'chaotic good', 'lawful neutral'\n" +
+  "- 'abilities': object with 'str','dex','con','int','wis','cha' as numbers (8-15). These must be BASE ability scores using standard array (15,14,13,12,10,8) or point buy — do NOT include racial, background, or level-up ASI bonuses. The Foundry character wizard will apply those separately. Allocate the highest base scores to the class's primary abilities.\n" +
+  "- 'skills': array of skill names the character is proficient in (based on class + background)\n" +
+  "- 'savingThrows': array of ability names for saving throw proficiencies (based on class)\n" +
+  "- 'appearance': object with 'gender','eyes','hair','skin','height','weight','age' as strings\n" +
+  "- 'personality': personality trait string\n" +
+  "- 'ideal': character ideal string\n" +
+  "- 'bond': character bond string\n" +
+  "- 'flaw': character flaw string\n" +
+  "- 'equipment': array of equipment names (e.g. ['longsword','chain mail','shield','explorer\\'s pack'])\n" +
+  "- 'spellcasting': object with 'ability' (e.g. 'wisdom') and 'spells' (array of known/prepared spell names INCLUDING CANTRIPS), or null if non-caster. Cantrips are critical — a level 5 wizard knows 3-4 cantrips (e.g. Fire Bolt, Prestidigitation, Minor Illusion, Mage Hand). List cantrips first, then leveled spells.\n" +
+  "- 'features': array of CLASS feature names only at the character's level (e.g. Arcane Recovery, Sneak Attack, Spellcasting, Uncanny Dodge). Do NOT include racial traits here — use the 'racialTraits' array for non-SRD races. SRD racial traits will be added separately by the user.\n" +
+  "- 'languages': array of language names\n" +
+  "- 'racialTraits': array of objects [{name, description}] — ONLY include this for homebrew/non-SRD races. Each trait needs a unique name and 1-2 sentence description. Omit for SRD races. Traits MUST match the official race's power level and theme — include equivalent abilities (e.g., a Tiefling should have fire resistance, darkvision, and an infernal spellcasting trait; a Tabaxi should have feline agility, claws, and climbing speed).\n" +
+  "- 'backgroundTraits': array of objects [{name, description}] — ONLY include this for homebrew/non-SRD backgrounds. Each trait has a unique name and 1-2 sentence description of an original background feature. Omit for SRD backgrounds (Acolyte, Charlatan, Criminal, Entertainer, Folk Hero, Gladiator, Guild Artisan, Guild Merchant, Hermit, Knight, Noble, Outlander, Pirate, Sage, Sailor, Soldier, Urchin, Wayfarer). Background traits may include mechanical effect fields if they have game-mechanical impact: 'resistances', 'immunities', 'conditionImmunities', 'darkvision', 'speed' (same format as racialTraits). Most background traits are roleplay/social features, but include mechanical fields when appropriate.\n" +
+  "- 'description': rich HTML backstory (2-3 paragraphs — origin, motivations, personality, key events that shaped them). Begin with '<b>Character Name:</b> name<br>' prefix.\n" +
+  "Output ONLY the JSON. No commentary, no markdown fences.";
+
+/**
+ * Generate NPC or Character JSON via chat completion.
+ * @param {string} prompt — user's actor description
+ * @param {GeneratorConfig} config
+ * @param {"npc"|"character"} actorType
+ * @param {object} [options={}] — { cr, creatureType, level, className, race } from dialog
+ * @returns {Promise<string|null>} JSON string, or null on failure
+ */
+export async function generateActorJSON(prompt, config, actorType, options = {}) {
+  if (!config || !prompt) return null;
+
+  let systemPrompt;
+  let constraints = "";
+
+  if (actorType === "character") {
+    systemPrompt = CHARACTER_PROMPT_BASE;
+    const ruleset = options.ruleset || "all";
+    if (options.level) constraints += ` The character is level ${options.level}.`;
+    if (options.className) {
+      constraints += ` The class is ${options.className}.`;
+      // Inject valid subclass list for this class and ruleset
+      const subclasses = getSubclasses(options.className, ruleset);
+      const subLevel = getSubclassLevel(options.className);
+      if (subclasses.length) {
+        const level = options.level || 1;
+        if (level >= subLevel) {
+          constraints += ` The character must have a subclass. Valid subclasses for ${options.className}: ${subclasses.join(", ")}.`;
+        }
+        // Inject expected class features
+        const features = getClassFeatures(options.className, level);
+        if (features.length) {
+          constraints += ` Expected class features at level ${level}: ${features.join(", ")}.`;
+        }
+      }
+      // Inject saving throw proficiencies
+      const saves = CLASS_SAVING_THROWS[options.className.toLowerCase()];
+      if (saves) constraints += ` Saving throw proficiencies: ${saves.join(", ")}.`;
+      // Inject spellcasting ability
+      const spellAbility = CLASS_SPELLCASTING_ABILITY[options.className.toLowerCase()];
+      if (spellAbility) constraints += ` Spellcasting ability: ${spellAbility}.`;
+    }
+    if (options.race) {
+      // If generic race with subraces (e.g. "elf"), tell AI to pick a specific one
+      if (raceHasSubraces(options.race)) {
+        const ruleset = options.ruleset || "all";
+        const subRaces = getAllRaces(ruleset).filter(r =>
+          r.toLowerCase().includes(options.race.toLowerCase())
+        );
+        if (subRaces.length) {
+          constraints += ` The race must be one of: ${subRaces.join(", ")}. Pick the most fitting specific subrace for the character concept.`;
+        } else {
+          constraints += ` The race is ${options.race}.`;
+        }
+      } else {
+        constraints += ` The race is ${options.race}.`;
+      }
+      // Inject racial traits
+      const raceInfo = getRaceData(options.race);
+      if (raceInfo) {
+        if (raceInfo.traits.length) constraints += ` Racial traits to include: ${raceInfo.traits.join(", ")}.`;
+        if (raceInfo.darkvision) constraints += ` Has darkvision ${raceInfo.darkvision} ft.`;
+        constraints += ` Base walking speed: ${raceInfo.speed} ft.`;
+        if (raceInfo.languages.length) constraints += ` Default languages: ${raceInfo.languages.join(", ")}.`;
+      }
+      // Homebrew racial traits for non-SRD races
+      if (!isRaceSRD(options.race)) {
+        constraints += ` The race "${options.race}" is homebrew. Generate 3-4 original racial traits with unique names and descriptions in the "racialTraits" array.` +
+          ` Each trait MUST have: name (string), description (1-2 sentences of original text).` +
+          ` Each trait may ALSO include these optional mechanical effect fields:` +
+          ` "acFormula" (string) — natural armor formula like "13 + @abilities.dex.mod" (only for natural armor traits),` +
+          ` "resistances" (array of strings) — damage resistances like ["fire"] or ["psychic","poison"],` +
+          ` "immunities" (array of strings) — damage immunities like ["poison"],` +
+          ` "conditionImmunities" (array of strings) — condition immunities like ["poisoned","charmed"],` +
+          ` "speed" (object) — speed overrides like {"walk":35} or {"swim":30,"climb":30},` +
+          ` "darkvision" (number) — darkvision range in feet like 60 or 120.` +
+          ` IMPORTANT: Include mechanical fields whenever a trait has a game-mechanical effect. Do NOT put mechanical effects only in the description — use the structured fields so they can be applied automatically.` +
+          ` Do NOT copy from published D&D sourcebooks — create original content.` +
+          ` Traits must be balanced for the character's level — no free extra attacks, no at-will powerful spells, no ability scores above 20.` +
+          ` Use SRD races as a power benchmark (e.g., Elf gets darkvision + Fey Ancestry + Trance).` +
+          ` IMPORTANT: Since this is a homebrew race, ability scores must be FINAL values (not base).` +
+          ` Start from standard array or point buy, then add +3 total for racial bonuses (e.g., +2 to one and +1 to another).` +
+          ` Also add any ASI from class advancement (e.g., +2 at level 4, +2 at level 8, etc.).` +
+          ` Scores can go above 15 but never above 20.`;
+      } else {
+        // SRD race: remind AI to keep base scores since the wizard handles bonuses
+        constraints += ` IMPORTANT: Since "${options.race}" is an SRD race, keep ability scores as BASE values (8-15 range, standard array or point buy). Do NOT add racial, background, or ASI bonuses — the Foundry character wizard will apply those.`;
+      }
+    }
+    if (options.subclass) constraints += ` The subclass is ${options.subclass}.`;
+    const extraPrompt = game.settings.get(MODULE_ID, "actorCharacterPrompt") || "";
+    if (extraPrompt) systemPrompt += "\n" + extraPrompt;
+  } else {
+    systemPrompt = NPC_PROMPT_BASE;
+    if (options.cr != null) constraints += ` The Challenge Rating must be ${options.cr}.`;
+    if (options.creatureType) constraints += ` The creature type is ${options.creatureType}.`;
+    const extraPrompt = game.settings.get(MODULE_ID, "actorNPCPrompt") || "";
+    if (extraPrompt) systemPrompt += "\n" + extraPrompt;
+  }
+
+  const fullPrompt = constraints ? prompt + constraints : prompt;
+  return await chatCompletion(config, config.chatModel, systemPrompt, fullPrompt, MAX_TOKENS_ACTOR, true);
+}
+
+/**
+ * Generate a creative actor name via AI.
+ * @param {string} prompt — actor description prompt
+ * @param {"npc"|"character"} actorType
+ * @param {GeneratorConfig} config
+ * @returns {Promise<string|null>}
+ */
+export async function apiGenerateActorName(prompt, actorType, config) {
+  const namePrompt = actorType === "character"
+    ? "Generate a creative fantasy character name appropriate for a D&D 5e player character. Consider the race and class if mentioned. Use evocative names — 'Thalia Moonwhisper', 'Grim Ashford', 'Zephyra Dawnblade'. Output only the name in plain text, no JSON."
+    : "Generate a creative fantasy NPC name appropriate for a D&D 5e creature or non-player character. Consider the creature type if mentioned. Use evocative names — 'Morghast the Undying', 'Sable Whisperthorn', 'Ironjaw'. Output only the name in plain text, no JSON.";
+
+  return await chatCompletion(config, config.lightModel || config.chatModel, namePrompt, prompt, 20);
+}
+
+/**
+ * Generate an actor image (portrait or token).
+ * Routes through the same image provider system as item images.
+ * @param {string} prompt — image description
+ * @param {"portrait"|"token"} imageType
+ * @param {GeneratorConfig} config
+ * @returns {Promise<string|null>} saved image path, or null on failure
+ */
+export async function generateActorImage(prompt, imageType, config) {
+  if (!prompt || !config) return null;
+
+  // Get custom prompt template from settings, or use defaults
+  let imagePrompt;
+  if (imageType === "token") {
+    const template = game.settings.get(MODULE_ID, "actorTokenPrompt") ||
+      "A top-down token view of {prompt}. Circular token, dark background, RPG battle map token style. No text, no letters, no words.";
+    imagePrompt = template.replace("{prompt}", prompt);
+  } else {
+    const template = game.settings.get(MODULE_ID, "actorPortraitPrompt") ||
+      "A portrait of {prompt}. Dark fantasy RPG character portrait style. Detailed face and upper body. No text, no letters, no words.";
+    imagePrompt = template.replace("{prompt}", prompt);
+  }
+
+  // Determine save folder
+  const subfolder = imageType === "token" ? "tokens" : "portraits";
+  const targetFolder = `${config.imageFolder}/${subfolder}`;
+
+  const imageProvider = config.imageProvider || "openai";
+
+  // Route to non-OpenAI image providers
+  if (imageProvider === "stable-diffusion") {
+    try {
+      const sdConfig = { ...config, imageFolder: targetFolder };
+      const imagePath = await generateSDImage(imagePrompt, sdConfig);
+      if (imagePath) return imagePath;
+    } catch (err) {
+      console.error("SD actor image failed:", err);
+    }
+  } else if (imageProvider === "stability-ai") {
+    return stabilityAIProvider.generateImage(imagePrompt, { ...config, imageFolder: targetFolder });
+  } else if (imageProvider === "fal-ai") {
+    return falAIProvider.generateImage(imagePrompt, { ...config, imageFolder: targetFolder });
+  } else if (imageProvider === "xai") {
+    return xaiImageProvider.generateImage(imagePrompt, { ...config, imageFolder: targetFolder });
+  }
+
+  // OpenAI image generation (default)
+  if (!config.dalleApiKey) return null;
+
+  const imageModel = config.imageModel;
+  const imageFormat = config.imageFormat || "png";
+
+  const requestBody = {
+    model: imageModel,
+    prompt: imagePrompt,
+    n: 1,
+    size: "1024x1024"
+  };
+
+  if (imageModel.startsWith("dall-e")) {
+    requestBody.response_format = "b64_json";
+  } else {
+    requestBody.quality = "medium";
+    requestBody.output_format = imageFormat;
+  }
+
+  try {
+    const response = await fetch(IMAGE_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${config.dalleApiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      console.error(`Actor image API error ${response.status}: ${errorBody}`);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.error) {
+      console.error("Actor image generation error:", data.error);
+      return null;
+    }
+
+    if (data.data?.[0]?.b64_json) {
+      const fmt = (!imageModel.startsWith("dall-e") && IMAGE_FORMAT_MAP[imageFormat])
+        ? IMAGE_FORMAT_MAP[imageFormat]
+        : IMAGE_FORMAT_MAP.png;
+
+      const dataUrl = `data:${fmt.mime};base64,${data.data[0].b64_json}`;
+      const shortName = prompt.replace(/[^a-zA-Z0-9 ]/g, "").split(/\s+/).slice(0, 4).join("_").toLowerCase();
+      const fileName = `${shortName}_${imageType}_${Date.now()}.${fmt.ext}`;
+      await ensureFolder(targetFolder);
+
+      trackImageGeneration();
+      return await saveImageLocally(dataUrl, fileName, targetFolder);
+    }
+  } catch (err) {
+    console.error("Actor image request failed:", err.message);
   }
 
   return null;

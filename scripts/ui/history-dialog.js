@@ -21,11 +21,26 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
     for (let i = history.length - 1; i >= 0; i--) {
       const entry = history[i];
       const time = new Date(entry.timestamp).toLocaleTimeString();
-      const typeIcon = entry.itemType === "rolltable" ? "fa-dice-d20" : "fa-scroll";
-      const display = entry.entryCount ? `${entry.itemName} (${entry.entryCount} entries)` : entry.itemName;
+      const isActor = entry.objectType === "actor";
       const isRollTable = entry.itemType === "rolltable";
+
+      let typeIcon, display, typeCol, rarityCol;
+      if (isActor) {
+        typeIcon = entry.actorType === "npc" ? "fa-skull" : "fa-user";
+        display = entry.name || "Actor";
+        typeCol = entry.actorType === "npc" ? "NPC" : "Character";
+        rarityCol = entry.actorType === "npc"
+          ? (entry.cr != null ? `CR ${entry.cr}` : "—")
+          : (entry.level != null ? `Lvl ${entry.level}` : "—");
+      } else {
+        typeIcon = isRollTable ? "fa-dice-d20" : "fa-scroll";
+        display = entry.entryCount ? `${entry.itemName} (${entry.entryCount} entries)` : entry.itemName;
+        typeCol = entry.itemType;
+        rarityCol = entry.rarity || "—";
+      }
+
       const btnStyle = "background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.25);border-radius:4px;color:#ddd;cursor:pointer;padding:4px 8px;font-size:0.78rem;margin:2px 0;display:block;width:100%;text-align:left;";
-      const regenButtons = isRollTable ? "—" : `
+      const regenButtons = (isRollTable || isActor) ? "—" : `
         <button class="regen-btn" style="${btnStyle}" data-action="name" data-idx="${i}" title="Regenerate Name"><i class="fas fa-pen" style="width:14px;"></i> Name</button>
         <button class="regen-btn" style="${btnStyle}" data-action="image" data-idx="${i}" title="Regenerate Image"><i class="fas fa-image" style="width:14px;"></i> Image</button>
         <button class="regen-btn" style="${btnStyle}" data-action="description" data-idx="${i}" title="Regenerate Description"><i class="fas fa-file-alt" style="width:14px;"></i> Desc</button>
@@ -33,8 +48,8 @@ export function openHistoryDialog(buildConfig, openGenerateDialog) {
       const cellStyle = "color:#ddd;padding:6px 8px;";
       rows += `<tr style="background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(255,255,255,0.1);">
         <td style="${cellStyle}"><i class="fas ${typeIcon}"></i> ${display}</td>
-        <td style="${cellStyle}">${entry.itemType}</td>
-        <td style="${cellStyle}">${entry.rarity || "—"}</td>
+        <td style="${cellStyle}">${typeCol}</td>
+        <td style="${cellStyle}">${rarityCol}</td>
         <td style="${cellStyle}">${time}</td>
         <td style="${cellStyle}">${regenButtons}</td>
       </tr>`;

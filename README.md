@@ -4,11 +4,11 @@
 # Bytes AI Foundry for Foundry VTT
 
 ![Foundry v13 Compatible](https://img.shields.io/badge/Foundry-v13-brightgreen?style=flat-square) ![Foundry v12 Compatible](https://img.shields.io/badge/Foundry-v12-green?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
-[![Version](https://img.shields.io/badge/Version-2.2.1-orange?style=flat-square)](https://github.com/f3rr311/Bytes-AI-Foundry/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
+[![Version](https://img.shields.io/badge/Version-2.3.0-orange?style=flat-square)](https://github.com/f3rr311/Bytes-AI-Foundry/releases) [![D&D 5e](https://img.shields.io/badge/D%26D_5e-v3.3_%E2%80%93_v5.x-red?style=flat-square)](https://github.com/foundryvtt/dnd5e)
 
 <br>
 
-**Generate complete, game-ready D&D 5e items with AI — weapons, armor, spells, feats, potions, and more.**
+**Generate complete, game-ready D&D 5e content with AI — items, NPCs, characters, and roll tables.**
 
 <br>
 
@@ -20,16 +20,16 @@
 
 > [!NOTE]
 >
-> ### 🆕 What's New in v2.2.1
+> ### 🆕 What's New in v2.3.0 — NPC & Character Generation + Multi-Provider AI
 >
-> Major refactor — 20 files changed, ~3,000 lines across 28 commits:
+> Full AI-powered Actor generation and multi-provider support:
 >
-> - **Architecture Overhaul** — `generateItemData` decomposed into focused helpers; dialogs extracted from `main.js` into dedicated UI modules
-> - **Shared Modules** — Type-detection keywords, magical detection, jQuery normalization, and regen spinner all consolidated into shared utilities
-> - **Type Safety** — Full JSDoc typedefs (`GeneratorConfig`, `ParsedGPTItem`) with `@param`/`@returns` on all major exports
-> - **Error Handling** — HTTP status checking on all API calls, standardized `null` failure returns, SD timeout notifications
-> - **UI Fixes** — History dialog button visibility, row contrast, and default width fixed for Foundry v13 CSS layers
-> - **154 Unit Tests** — Built from scratch with Vitest covering all utility modules
+> - **NPC Generation** — Complete stat blocks (CR 0–30) with actions, traits, spellcasting, legendary abilities, and compendium-sourced features.
+> - **Character Generation** — Full player characters with class, race, level, background, skills, and equipment. SRD races pull from compendium; non-SRD races get original homebrew traits.
+> - **Multi-Provider AI** — Choose your text AI (OpenAI GPT, Google Gemini, xAI Grok, Ollama) and image AI (GPT Image 1, DALL-E, xAI Aurora, Stability AI, fal.ai).
+> - **Rule Validation** — HP from hit dice, proficiency from CR/level, spell slots from caster tables, AC from armor, ability scores clamped.
+> - **SRD Compliance** — Compendium-first for SRD content, original AI-generated homebrew for everything else. See [Legal & Disclaimers](#%EF%B8%8F-legal--disclaimers).
+> - **367 Unit Tests** — 213 new tests across 20 test files.
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 
@@ -68,6 +68,21 @@
 - 🆕 **Two-Pass Description Validation:** First a regex scan, then a GPT-informed scan extracts every mechanical bonus from descriptions and converts them into proper Active Effects — with de-duplication and armor AC double-count protection.
 - 🆕 **Castable Spell Embedding:** Items with spell-casting abilities get Cast activities linked to real spell documents from your world or compendiums.
 
+### 🆕 AI-Powered Actor Generation
+- **NPC Generation:** Describe an NPC — the module generates a complete stat block with abilities, HP, AC, actions, traits, spellcasting, and embedded items (weapons, spells, features from compendium).
+- **Character Generation:** Create full player characters with class, race, level, background, skills, equipment, personality, and biography.
+- **SRD Compendium Integration:** SRD races and classes pull traits, features, and spells directly from your dnd5e compendium packs with proper icons and descriptions.
+- **Homebrew Support:** Non-SRD races get AI-generated original racial traits as homebrew feat items — balanced against SRD benchmarks.
+- **Strict Rule Validation:** HP recomputed from hit dice formulas, proficiency from CR/level, spell slots from class caster tables (full/half/third/pact), AC verified against armor type, ability scores clamped to valid ranges. All corrections shown in preview.
+- **Portrait + Token Images:** Two separate AI images per actor — a character portrait and a circular battle-map token.
+- **Actor Preview:** Review stats, abilities, embedded items, corrections, and warnings before creating. Regen buttons for name, portrait, token, and stats.
+- **Compendium-First Items:** Spells and equipment sourced from your compendium packs when possible; only creates stubs for missing content.
+- **11 Templates:** Goblin war chief, ancient dragon, undead knight, mysterious merchant, forest guardian, human fighter, elven wizard, tiefling warlock, dwarven cleric, half-orc barbarian.
+
+> [!TIP]
+>
+> **Generated actors are a starting point, not a finished product.** The AI does its best but may produce unbalanced homebrew traits, miss edge cases, or make creative choices you disagree with. Always review generated NPCs and characters before using them in play — the GM is the final authority. Stats, features, and descriptions can all be edited on the actor sheet after creation.
+
 ### Image Generation
 - 🆕 **GPT Image 1:** Default image model — generates high-quality item artwork with automatic local storage (PNG, WebP, or JPEG).
 - **DALL-E 3 / DALL-E 2:** Legacy support available but deprecated — will stop working after May 12, 2026.
@@ -80,10 +95,11 @@
 - **Configurable Entry Count:** Choose how many entries to generate per table.
 
 ### 🆕 Robust Architecture
-- 🆕 **15 Modular ES Modules:** Clean separation of concerns — API, generators, utilities, and UI.
+- 🆕 **20+ Modular ES Modules:** Clean separation of concerns — API, generators, validators, utilities, and UI.
 - **Triple-Layer JSON Parsing:** Native parse → GPT auto-repair → regex extraction. Dramatically reduces generation failures.
 - 🆕 **Foundry v12 + v13:** Full compatibility with both major Foundry versions — jQuery for v12, native DOM for v13, no deprecation warnings.
-- **Customizable Prompts:** All GPT, DALL-E, and Stable Diffusion prompts are exposed in module settings.
+- **Customizable Prompts:** All generation prompts (items, NPCs, characters, images) are exposed in module settings.
+- 🆕 **367 Unit Tests:** Comprehensive Vitest coverage of utilities, validators, and parsers.
 
 <br>
 
@@ -112,27 +128,29 @@
 ## 📖 How to Use
 
 ### 1. Open the Generator
-Navigate to the **Items** tab in the sidebar. Click the **"Generate AI (Item or RollTable)"** button in the directory footer (GM only).
+- **Items:** Navigate to the **Items** tab. Click **"Generate AI (Item or RollTable)"** in the directory footer (GM only).
+- **Actors:** Navigate to the **Actors** tab. Click **"Generate AI (NPC or Character)"** in the directory footer (GM only).
 
 ### 2. Choose What to Generate
-- **Item** — Generate a single item with full stats, effects, and image.
-- **Roll Table** — Generate a table of multiple items or generic entries.
+- **Item** — A single item with full stats, effects, and image.
+- **Roll Table** — A table of multiple items or generic entries.
+- **NPC** — A monster/creature with full stat block, actions, traits, and images.
+- **Character** — A player character with class, level, abilities, equipment, and images.
 
 ### 3. Configure Options
-- **Type Selection:** Auto-detect (let the AI decide) or explicitly choose: Weapon, Armor, Equipment, Consumable, Tool, Loot, Spell, Feat, Container, or Background.
-- **Name Override:** Optionally provide a specific name, or leave blank for AI naming.
-- 🆕 **Template:** Pick from 10 built-in presets to auto-fill the prompt, type, and mode — or write your own from scratch.
-- **Entry Count:** For roll tables, set how many entries to generate.
+- **Items:** Type selection, name override, template (10 presets), entry count for tables.
+- **NPCs:** Challenge Rating (0–30), creature type, name override, template (5 NPC presets).
+- **Characters:** Level (1–20), class, race, name override, template (5 character presets).
 
-### 4. Describe Your Item
+### 4. Describe What You Want
 Enter a prompt like:
 - *"A cursed greatsword that drains the wielder's health on each hit"*
-- *"+2 mithral half plate with fire resistance"*
-- *"A 3rd-level necromancy spell that raises undead servants"*
+- *"A cunning goblin shaman who leads a small cult in the sewers"*
+- *"A grizzled dwarven cleric with a haunted past and a heart of gold"*
 - *"Random magical dungeon loot — mix of weapons, armor, and potions"*
 
-### 5. Generate
-Click **Generate** and wait for the progress bar to complete. The item appears in your Items directory ready to drag onto character sheets.
+### 5. Preview & Create
+Click **Generate**, review the preview (edit name, description, regen images/stats), then **Confirm** to create. Items go to "AI Items", NPCs to "AI NPCs", characters to "AI Characters".
 
 <br>
 
@@ -201,7 +219,8 @@ All settings are found in **Game Settings > Configure Settings > Bytes AI Foundr
 - ✅ ~~Item preview before creation~~ (v2.2)
 - ✅ ~~Regenerate individual parts (name, image, description)~~ (v2.2)
 - ✅ ~~Compendium-aware validation~~ (v2.2)
-- **NPC Generation** — Full Actor creation with ability scores, HP, AC, CR, embedded attacks/features/spells, portrait + token images
+- ✅ ~~NPC & Character Generation~~ (v2.3)
+- **Encounter Generation** — Generate balanced encounter groups with multiple NPCs
 - **Pathfinder 2e Support** — System detection with PF2e-specific data models and prompts
 - Community contributions welcome — feedback and ideas are appreciated
 
@@ -222,6 +241,22 @@ Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores re
 | **Strict** | 75.4 / 100 |
 
 > **Note on test strategy score (42%):** Foundry VTT modules run inside the Foundry runtime and depend on globals (`game`, `Dialog`, `ui`, `canvas`, etc.) that cannot be imported in a standard Node test environment. Unit tests cover pure utility functions (154 tests, all passing), but integration and UI tests require a running Foundry server. The low test-strategy score reflects this platform limitation, not a lack of testing effort.
+
+<br>
+
+---
+
+<br>
+
+## ⚖️ Legal & Disclaimers
+
+### D&D 5e SRD Content
+This module references game mechanics and terminology from the **D&D 5th Edition Systems Reference Document (SRD 5.1)**, available under the [Creative Commons Attribution 4.0 International License (CC-BY-4.0)](https://dnd.wizards.com/resources/systems-reference-document) by Wizards of the Coast.
+
+This module **does not** distribute, reproduce, or bundle any copyrighted content from Wizards of the Coast. SRD-licensed content (races, classes, spells, monsters, etc.) is accessed at runtime from your own Foundry VTT dnd5e system compendium packs — provided by the dnd5e system module under its own license. Non-SRD race names in the source code are used solely as mechanical lookup keys (speed, size, darkvision) for validation. Game mechanics are not copyrightable.
+
+### AI-Generated Content
+All NPCs, player characters, items, racial traits, and other narrative content produced by this module are **generated dynamically by third-party AI services** (OpenAI, Google, xAI, etc.) at the user's request using the user's own API key. This content is **not** created, reviewed, or endorsed by the module author. No guarantees are made about the accuracy, balance, or appropriateness of AI-generated content. **All generated actors and items should be reviewed by the Game Master before use in play.**
 
 <br>
 

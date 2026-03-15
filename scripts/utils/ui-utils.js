@@ -5,18 +5,35 @@
 
 import { MODULE_ID } from '../settings.js';
 
-// OpenAI pricing per 1M tokens (USD) — updated March 2026
+// Model pricing per 1M tokens (USD) — updated March 2026
 const MODEL_PRICING = {
+  // OpenAI
   "gpt-4.1":       { input: 2.00, output: 8.00 },
   "gpt-4.1-mini":  { input: 0.40, output: 1.60 },
   "gpt-4.1-nano":  { input: 0.10, output: 0.40 },
   "gpt-4o":        { input: 2.50, output: 10.00 },
   "gpt-4o-mini":   { input: 0.15, output: 0.60 },
+  // Anthropic Claude
+  "claude-opus-4-20250514":   { input: 15.00, output: 75.00 },
+  "claude-sonnet-4-20250514": { input: 3.00, output: 15.00 },
+  "claude-haiku-4-5-20251001": { input: 1.00, output: 5.00 },
+  // Google Gemini
+  "gemini-2.5-pro":        { input: 1.25, output: 10.00 },
+  "gemini-2.5-flash":      { input: 0.15, output: 0.60 },
+  "gemini-2.5-flash-lite": { input: 0.075, output: 0.30 },
+  // xAI Grok
+  "grok-4-0709":           { input: 3.00, output: 15.00 },
+  "grok-4-1-fast-non-reasoning": { input: 0.20, output: 0.50 },
+  "grok-3":                { input: 3.00, output: 15.00 },
 };
+// Fallback for unknown models (Ollama, Custom) — returns $0
+const FREE_RATE = { input: 0, output: 0 };
+
 const IMAGE_PRICING = {
-  "gpt-image-1": 0.04,   // 1024x1024 low quality
-  "dall-e-3":    0.04,
-  "dall-e-2":    0.02,
+  "gpt-image-1":        0.04,   // 1024x1024 low quality
+  "dall-e-3":           0.04,
+  "dall-e-2":           0.02,
+  "grok-imagine-image": 0.07,   // xAI flat per-image
 };
 
 /**
@@ -37,13 +54,13 @@ export function estimateCost(costObj, models = {}) {
 
   // Blend chat + light model pricing (most calls use chatModel, name gen uses lightModel)
   // Approximate: ~70% of tokens go to chatModel, ~30% to lightModel
-  const chatRate = MODEL_PRICING[chatModel] || MODEL_PRICING["gpt-4.1"];
-  const lightRate = MODEL_PRICING[lightModel] || MODEL_PRICING["gpt-4.1-mini"];
+  const chatRate = MODEL_PRICING[chatModel] || FREE_RATE;
+  const lightRate = MODEL_PRICING[lightModel] || FREE_RATE;
   const blendedInput = chatRate.input * 0.7 + lightRate.input * 0.3;
   const blendedOutput = chatRate.output * 0.7 + lightRate.output * 0.3;
 
   const textCost = (costObj.promptTokens * blendedInput + costObj.completionTokens * blendedOutput) / 1_000_000;
-  const imgRate = IMAGE_PRICING[imageModel] || IMAGE_PRICING["gpt-image-1"];
+  const imgRate = IMAGE_PRICING[imageModel] || 0;
   const imgCost = (costObj.imageGenerations || 0) * imgRate;
 
   return textCost + imgCost;
@@ -74,7 +91,8 @@ export function resolveHtmlRoot(html) {
  */
 export function initDialogRoot(html) {
   const root = resolveHtmlRoot(html);
-  const dialog = root.closest('.dialog');
+  // v12 uses `.dialog`, v13 uses `.window-app` / `.app` as the wrapper class
+  const dialog = root.closest('.dialog') || root.closest('.window-app');
   if (dialog) {
     dialog.classList.add('chatgpt-dialog');
     dialog.style.height = 'auto';

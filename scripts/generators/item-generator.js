@@ -111,16 +111,21 @@ function inferMagicalBonusFromRarity(rarity) {
 export async function parseItemJSON(raw, config) {
   if (!raw || typeof raw !== "string") return {};
   console.debug("Raw JSON from GPT:", raw);
+
+  // Strip markdown fences before any parse attempt — some providers (xAI Grok)
+  // wrap JSON in ```json ... ``` despite being told not to.
+  let cleaned = raw.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+
   try {
-    return JSON.parse(raw);
+    return JSON.parse(cleaned);
   } catch (err1) {
     console.warn("Could not parse item JSON; second GPT fix:", err1);
-    let fixed = await fixInvalidJSON(raw, config);
+    let fixed = await fixInvalidJSON(cleaned, config);
     try {
       return JSON.parse(fixed);
     } catch (err2) {
       console.warn("Second GPT fix also invalid, sanitizer:", err2);
-      let sanitized = sanitizeJSON(raw);
+      let sanitized = sanitizeJSON(cleaned);
       try {
         return JSON.parse(sanitized);
       } catch (err3) {
@@ -630,22 +635,37 @@ export async function generateItemData(itemPrompt, config, forcedName = null, ex
     ? forcedName
     : await generateItemName(combined, config);
 
-  // Generate the image and update progress to 20%
-  let imagePath = await generateItemImage(combined, config);
-  if (!imagePath) {
-    ui.notifications.warn("Image generation failed — using default icon.");
-  }
+  // Generate the item JSON first so we can feed the description to the image generator
+  // Include the generated name so the description references the correct item
+  const jsonPromptInput = generatedName ? `${generatedName}: ${combined}` : combined;
+  let rawItemJSON = await generateItemJSON(jsonPromptInput, config, explicitType) ?? "{}";
   updateProgressBar(20);
-
-  // Generate the item JSON and update progress to 40%
-  let rawItemJSON = await generateItemJSON(combined, config, explicitType) ?? "{}";
-  updateProgressBar(40);
 
   // Fix and parse the JSON (pass explicitType to guard weapon-specific name replacement)
   let mismatchResult = fixNameDescriptionMismatch(generatedName, rawItemJSON, combined, explicitType);
   let fixedJSON = mismatchResult.json;
   generatedName = mismatchResult.name;
   let parsed = await parseItemJSON(fixedJSON, config);
+
+  // Build image prompt from the description so the image matches the item's appearance.
+  // Use only the first 2 sentences of the description (visual flavor) — mechanical stats
+  // and damage numbers would confuse image models.
+  const descSnippet = (parsed.description || "")
+    .replace(/<[^>]*>/g, "")                          // strip HTML tags
+    .split(/(?<=[.!?])\s+/)                           // split on sentence boundaries
+    .slice(0, 2)                                       // first 2 sentences
+    .join(" ")
+    .trim();
+  const imagePrompt = descSnippet
+    ? `${generatedName}: ${descSnippet}`
+    : (generatedName ? `${generatedName}: ${combined}` : combined);
+
+  // Generate the image and update progress to 40%
+  let imagePath = await generateItemImage(imagePrompt, config);
+  if (!imagePath) {
+    ui.notifications.warn("Image generation failed — using default icon.");
+  }
+  updateProgressBar(40);
 
   // Transform weapon damage into the correct format for the dnd5e version
   if (parsed.damage && (explicitType === "Weapon" || WEAPON_KEYWORDS.some(term => generatedName.toLowerCase().includes(term)))) {

@@ -19,3 +19,34 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+D&D 5e SRD Content Notice
+
+This module references game mechanics and terminology from the D&D 5th Edition
+Systems Reference Document (SRD 5.1), which is available under the Creative
+Commons Attribution 4.0 International License (CC-BY-4.0) by Wizards of the
+Coast. See: https://dnd.wizards.com/resources/systems-reference-document
+
+This module does NOT distribute, reproduce, or bundle any copyrighted content
+from Wizards of the Coast. SRD-licensed content (races, classes, spells,
+monsters, etc.) is accessed at runtime from the user's own Foundry VTT dnd5e
+system compendium packs — which are provided by the dnd5e system module under
+its own license.
+
+Non-SRD race names present in the source code are used solely as mechanical
+lookup keys (speed, size, darkvision values) for validation purposes. Game
+mechanics are not copyrightable. No descriptions, lore, or creative content
+from non-SRD sources is distributed with this module.
+
+AI-Generated Content Disclaimer
+
+All NPCs, player characters, item descriptions, racial traits, and other
+narrative content produced by this module are generated dynamically by
+third-party AI services (OpenAI, Google, xAI, etc.) at the user's request
+using the user's own API key. This AI-generated content is NOT created,
+reviewed, or endorsed by the module author. The module author makes no
+guarantees about the accuracy, balance, or appropriateness of AI-generated
+content. All generated actors and items should be reviewed and adjusted by the
+Game Master before use in play.
