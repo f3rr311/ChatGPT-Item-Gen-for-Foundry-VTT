@@ -26,10 +26,10 @@
 >
 > - **NPC Generation** — Complete stat blocks (CR 0–30) with actions, traits, spellcasting, legendary abilities, and compendium-sourced features.
 > - **Character Generation** — Full player characters with class, race, level, background, skills, and equipment. SRD races pull from compendium; non-SRD races get original homebrew traits.
-> - **Multi-Provider AI** — Choose your text AI (OpenAI GPT, Google Gemini, xAI Grok, Ollama) and image AI (GPT Image 1, DALL-E, xAI Aurora, Stability AI, fal.ai).
+> - **Multi-Provider AI** — Choose your text AI (OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Ollama, or any OpenAI-compatible endpoint) and image AI (GPT Image 1, DALL-E, xAI Aurora, Stability AI, fal.ai).
 > - **Rule Validation** — HP from hit dice, proficiency from CR/level, spell slots from caster tables, AC from armor, ability scores clamped.
 > - **SRD Compliance** — Compendium-first for SRD content, original AI-generated homebrew for everything else. See [Legal & Disclaimers](#%EF%B8%8F-legal--disclaimers).
-> - **367 Unit Tests** — 213 new tests across 20 test files.
+> - **356 Unit Tests** — across 20 test files.
 >
 > See the [Update Logs](Updates.md) for the full changelog.
 
@@ -39,7 +39,7 @@
 >
 > - **System:** D&D 5e only (`dnd5e` v3.3.1 – v5.1.x)
 > - **Foundry VTT:** v12.331 – v13.351
-> - **API Key:** An [OpenAI API key](https://platform.openai.com/api-keys) is required for item generation and image creation.
+> - **API Key:** An API key for at least one [supported AI provider](#-multi-provider-ai-support) — [OpenAI](https://platform.openai.com/api-keys) (default), Anthropic, Google Gemini, xAI, or a local Ollama server.
 
 <br>
 
@@ -84,8 +84,11 @@
 > **Generated actors are a starting point, not a finished product.** The AI does its best but may produce unbalanced homebrew traits, miss edge cases, or make creative choices you disagree with. Always review generated NPCs and characters before using them in play — the GM is the final authority. Stats, features, and descriptions can all be edited on the actor sheet after creation.
 
 ### Image Generation
-- 🆕 **GPT Image 1:** Default image model — generates high-quality item artwork with automatic local storage (PNG, WebP, or JPEG).
-- **DALL-E 3 / DALL-E 2:** Legacy support available but deprecated — will stop working after May 12, 2026.
+- 🆕 **GPT Image 1:** Default image model — generates high-quality item and actor artwork with automatic local storage (PNG, WebP, or JPEG).
+- 🆕 **xAI Aurora:** Image generation via xAI's Grok image model.
+- 🆕 **Stability AI:** Image generation via Stability AI's models.
+- 🆕 **fal.ai:** Image generation via fal.ai (FLUX, Recraft, Ideogram models).
+- **DALL-E 3 / DALL-E 2:** Legacy OpenAI support — deprecated, will stop working after May 12, 2026.
 - **Stable Diffusion:** Optional local image generation via Stable Diffusion API with polling and timeout handling.
 - **Media Optimizer:** Compatible with the Media Optimizer module for image optimization.
 
@@ -94,12 +97,24 @@
 - **Generic Tables:** Produces thematic text-only tables (e.g., random encounters, loot descriptions, rumors).
 - **Configurable Entry Count:** Choose how many entries to generate per table.
 
+### 🆕 Multi-Provider AI Support
+Choose your preferred AI services for text and image generation:
+
+| Text AI Providers | Image AI Providers |
+|---|---|
+| **OpenAI** — GPT-4.1, 4.1 Mini, 4.1 Nano, 4o, 4o Mini | **OpenAI** — GPT Image 1, DALL-E 3, DALL-E 2 |
+| **Anthropic** — Claude models | **xAI** — Aurora (Grok image model) |
+| **Google** — Gemini models | **Stability AI** — Stable Diffusion models |
+| **xAI** — Grok models | **fal.ai** — FLUX, Recraft, Ideogram |
+| **Ollama** — Any local model | **Stable Diffusion** — Local via API |
+| **Custom** — Any OpenAI-compatible endpoint | |
+
 ### 🆕 Robust Architecture
-- 🆕 **20+ Modular ES Modules:** Clean separation of concerns — API, generators, validators, utilities, and UI.
+- 🆕 **30+ Modular ES Modules:** Clean separation of concerns — API, providers, generators, validators, utilities, and UI.
 - **Triple-Layer JSON Parsing:** Native parse → GPT auto-repair → regex extraction. Dramatically reduces generation failures.
 - 🆕 **Foundry v12 + v13:** Full compatibility with both major Foundry versions — jQuery for v12, native DOM for v13, no deprecation warnings.
 - **Customizable Prompts:** All generation prompts (items, NPCs, characters, images) are exposed in module settings.
-- 🆕 **367 Unit Tests:** Comprehensive Vitest coverage of utilities, validators, and parsers.
+- 🆕 **356 Unit Tests:** Comprehensive Vitest coverage of utilities, validators, and parsers.
 
 <br>
 
@@ -117,7 +132,7 @@
    ```
 4. Click **Install**.
 5. Enable the module in your world via **Game Settings > Manage Modules**.
-6. Configure your **OpenAI API Key** in **Game Settings > Configure Settings > Bytes AI Foundry**.
+6. Configure your **AI provider and API key** in **Game Settings > Configure Settings > Bytes AI Foundry** (OpenAI is the default).
 
 <br>
 
@@ -183,16 +198,42 @@ Click **Generate**, review the preview (edit name, description, regen images/sta
 
 All settings are found in **Game Settings > Configure Settings > Bytes AI Foundry**.
 
+#### Text AI
 | Setting | Description |
 |---------|-------------|
-| **OpenAI API Key** | Your OpenAI API key for text generation (required) |
-| **DALL-E API Key** | Your OpenAI API key for image generation (can be the same key) |
-| **Primary Model** | GPT model for item/table JSON generation (default: `gpt-4.1`) — also supports 4.1 Mini, 4.1 Nano, 4o, 4o Mini, GPT-4 |
-| **Light Model** | Faster model for names, JSON fixes, and property extraction (default: `gpt-4.1-mini`) |
+| **Text AI Provider** | OpenAI (default), Anthropic, Google Gemini, xAI, Ollama, or Custom |
+| **OpenAI API Key** | Required for OpenAI text and image generation |
+| **Anthropic API Key** | Required if using Anthropic Claude |
+| **Google Gemini API Key** | Required if using Google Gemini |
+| **xAI API Key** | Required if using xAI Grok |
+| **Ollama Endpoint** | URL for local Ollama server (default: `http://localhost:11434`) |
+| **Custom Provider Endpoint** | Any OpenAI-compatible API endpoint |
+| **Custom Provider API Key** | API key for custom endpoint |
+| **Primary Model** | Model for item/actor JSON generation (default: `gpt-4.1`) |
+| **Light Model** | Faster model for names, JSON fixes, property extraction (default: `gpt-4.1-mini`) |
+
+#### Image AI
+| Setting | Description |
+|---------|-------------|
+| **Image AI Provider** | OpenAI (default), xAI Aurora, Stability AI, fal.ai, or Stable Diffusion |
+| **DALL-E API Key** | OpenAI key for image generation (can be the same as text key) |
+| **Stability AI API Key** | Required if using Stability AI |
+| **fal.ai API Key** | Required if using fal.ai |
 | **Image Model** | `gpt-image-1` (recommended), `dall-e-3`, or `dall-e-2` (DALL-E deprecated May 2026) |
 | **Image Format** | PNG (lossless), WebP (smaller), or JPEG (smallest) |
-| **Stable Diffusion** | Toggle, API key, endpoint, prompt, negative prompt, steps, CFG scale, sampler |
-| **Custom Prompts** | Editable prompts for item JSON, item names, roll tables, image generation, and Stable Diffusion |
+| **Stable Diffusion** | Toggle, endpoint, prompt, negative prompt, steps, CFG scale, sampler |
+
+#### Custom Prompts
+| Setting | Description |
+|---------|-------------|
+| **Item Generation Prompt** | System prompt for item JSON generation |
+| **Item Name Prompt** | Prompt for AI name generation |
+| **Roll Table Prompt** | Prompt for roll table generation |
+| **Image Prompt** | Prompt template for item image generation |
+| **NPC Generation Prompt** | System prompt for NPC stat block generation |
+| **Character Generation Prompt** | System prompt for player character generation |
+| **Actor Portrait Prompt** | Prompt template for actor portrait images |
+| **Actor Token Prompt** | Prompt template for actor token images |
 
 <br>
 
@@ -202,11 +243,13 @@ All settings are found in **Game Settings > Configure Settings > Bytes AI Foundr
 
 ## 🔧 Troubleshooting
 
-- **"API Key is not set"** — Add your OpenAI API key in module settings.
+- **"API Key is not set"** — Add your API key for your selected provider in module settings.
 - **Image not saving** — Ensure `data/chatgpt-item-generator/` folder exists and has write permissions. The module creates it automatically, but server permissions may block this.
 - **Wrong item type** — Try using explicit type selection instead of auto-detect for tricky items.
-- **JSON parse errors** — The triple-layer parser handles most issues automatically. If it persists, try simplifying your prompt.
+- **JSON parse errors** — The triple-layer parser handles most issues automatically. If it persists, try simplifying your prompt or switching to a stronger model.
+- **Actor seems unbalanced** — Generated actors are starting points. Review homebrew traits and adjust before play — the GM is the final authority.
 - **Stable Diffusion not connecting** — Add to your `webui-user.bat`: `set COMMANDLINE_ARGS=--cors-allow-origins="*" --api`
+- **Ollama not connecting** — Ensure your Ollama server is running and the endpoint in settings matches (default: `http://localhost:11434`).
 
 <br>
 
@@ -220,6 +263,7 @@ All settings are found in **Game Settings > Configure Settings > Bytes AI Foundr
 - ✅ ~~Regenerate individual parts (name, image, description)~~ (v2.2)
 - ✅ ~~Compendium-aware validation~~ (v2.2)
 - ✅ ~~NPC & Character Generation~~ (v2.3)
+- ✅ ~~Multi-Provider AI Support~~ (v2.3)
 - **Encounter Generation** — Generate balanced encounter groups with multiple NPCs
 - **Pathfinder 2e Support** — System detection with PF2e-specific data models and prompts
 - Community contributions welcome — feedback and ideas are appreciated
@@ -232,7 +276,7 @@ All settings are found in **Game Settings > Configure Settings > Bytes AI Foundr
 
 ## 📊 Code Health
 
-Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores reflect automated analysis and blind peer review.
+Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores from v2.2.1 audit — v2.3.0 re-audit pending.
 
 | Metric | Score |
 |--------|-------|
@@ -240,7 +284,7 @@ Tracked with [desloppify](https://github.com/peteromallet/desloppify). Scores re
 | **Mechanical (objective)** | 99.8 / 100 |
 | **Strict** | 75.4 / 100 |
 
-> **Note on test strategy score (42%):** Foundry VTT modules run inside the Foundry runtime and depend on globals (`game`, `Dialog`, `ui`, `canvas`, etc.) that cannot be imported in a standard Node test environment. Unit tests cover pure utility functions (154 tests, all passing), but integration and UI tests require a running Foundry server. The low test-strategy score reflects this platform limitation, not a lack of testing effort.
+> **Note on test strategy score (42%):** Foundry VTT modules run inside the Foundry runtime and depend on globals (`game`, `Dialog`, `ui`, `canvas`, etc.) that cannot be imported in a standard Node test environment. Unit tests cover pure utility functions (356 tests across 20 files, all passing), but integration and UI tests require a running Foundry server. The low test-strategy score reflects this platform limitation, not a lack of testing effort.
 
 <br>
 
